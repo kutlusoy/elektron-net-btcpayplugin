@@ -12,6 +12,9 @@ COPY . .
 RUN cmake -B build \
         -DCMAKE_BUILD_TYPE=Release \
         -DBUILD_GUI=OFF \
+        -DENABLE_IPC=OFF \
+        -DBUILD_TESTS=OFF \
+        -DBUILD_BENCH=OFF \
         -DWITH_ZMQ=ON \
     && cmake --build build -j"$(nproc)" \
     && cmake --install build
