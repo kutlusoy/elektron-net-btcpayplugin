@@ -186,13 +186,17 @@ seednode=seed0.eleknet.org
 addnode=node1.elektron-net.org:8333
 addnode=node2.elektron-net.org:8333
 
-rpcbind=0.0.0.0
+rpcbind=172.29.88.251
 rpcallowip=172.29.88.0/24
 $rpcauth_line
 EOF
 fi
 
 conf_changed=0
+if grep -q '^rpcbind=0.0.0.0$' elektron.conf; then
+    sed -i 's/^rpcbind=0.0.0.0$/rpcbind=172.29.88.251/' elektron.conf
+    conf_changed=1
+fi
 if ! grep -q '^fallbackfee=' elektron.conf; then
     printf '\nfallbackfee=0.0001\n' >> elektron.conf
     conf_changed=1

@@ -11,6 +11,9 @@ services:
     restart: unless-stopped
     ports:
       - "8333:8333"
+    networks:
+      default:
+        ipv4_address: 172.29.88.251
     volumes:
       - elektrond-data:/data
       - ./elektron.conf:/etc/elektron/elektron.conf:ro
@@ -19,6 +22,10 @@ services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
+    command: ["postgres", "-c", "listen_addresses=172.29.88.250"]
+    networks:
+      default:
+        ipv4_address: 172.29.88.250
     environment:
       POSTGRES_USER: btcpay
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run install.sh to generate .env}
