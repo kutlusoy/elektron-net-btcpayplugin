@@ -179,6 +179,7 @@ bind=0.0.0.0:8333
 maxconnections=125
 addresstype=bech32
 disablewallet=0
+fallbackfee=0.0001
 
 seednode=seeder.eleknet.org
 seednode=seed0.eleknet.org
@@ -189,6 +190,12 @@ rpcbind=0.0.0.0
 rpcallowip=172.29.88.0/24
 $rpcauth_line
 EOF
+fi
+
+conf_changed=0
+if ! grep -q '^fallbackfee=' elektron.conf; then
+    printf '\nfallbackfee=0.0001\n' >> elektron.conf
+    conf_changed=1
 fi
 
 ecli() { docker compose exec -T elektrond elektron-cli -conf=/etc/elektron/cli.conf "$@"; }
@@ -203,6 +210,7 @@ rm -f .env.bak
 
 log "Starting the node and the database"
 docker compose up -d elektrond postgres
+[[ $conf_changed == 0 ]] || docker compose restart elektrond
 
 log "Waiting for the node RPC"
 for _ in $(seq 1 60); do
