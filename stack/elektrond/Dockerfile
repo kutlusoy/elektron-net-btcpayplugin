@@ -38,4 +38,4 @@ VOLUME ["/data"]
 EXPOSE 8333 8332
 
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["elektrond", "-conf=/etc/elektron/elektron.conf", "-datadir=/data", "-printtoconsole"]
+CMD ["elektrond", "-conf=/etc/elektron/elektron.conf", "-datadir=/data", "-allowignoredconf=1", "-printtoconsole"]
