@@ -215,6 +215,9 @@ $rpcauth_line
 EOF
 fi
 
+# The node runs as an unprivileged user in the container and must be able to read the file, it holds only the hashed credential
+chmod 644 elektron.conf
+
 conf_changed=0
 if grep -q '^rpcbind=0.0.0.0$' elektron.conf; then
     sed -i 's/^rpcbind=0.0.0.0$/rpcbind=172.29.88.251/' elektron.conf
@@ -336,7 +339,8 @@ EOF
     cat <<EOF
 
 FILES TO KEEP (in $PWD)
-  stack.conf, .env, cli.conf, elektron.conf, secrets/ (modes 600, excluded from Git)
+  stack.conf, .env, cli.conf, elektron.conf, secrets/ (excluded from Git, all mode 600 except elektron.conf with mode 644,
+  because the node runs as an unprivileged user and must read it, it holds only the hashed RPC credential)
 
 BACKUP COMMANDS
   BTCPay database:  docker compose exec -T postgres pg_dump -U btcpay btcpayserver > btcpay-db.sql
