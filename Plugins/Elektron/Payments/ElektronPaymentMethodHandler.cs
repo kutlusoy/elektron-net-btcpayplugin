@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using BTCPayServer.Data;
 using BTCPayServer.Payments;
 using BTCPayServer.Plugins.Elektron.Services;
 using Newtonsoft.Json;

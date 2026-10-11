@@ -6,6 +6,7 @@ using BTCPayServer.Payments;
 using BTCPayServer.Plugins.Elektron.Payments;
 using BTCPayServer.Plugins.Elektron.Services;
 using BTCPayServer.Plugins.Elektron.ViewModels;
+using BTCPayServer.Services.Invoices;
 using BTCPayServer.Services.Stores;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
