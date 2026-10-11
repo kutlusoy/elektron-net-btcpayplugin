@@ -5,11 +5,11 @@
 - **Audience:** Merchants and server operators who want to accept ELEK through BTCPay Server
 - **Reference implementation:** [`elektron-net`](https://github.com/kutlusoy/elektron-net) (`TECHNICAL_SETUP.md`, `Quick-Install.md`, `src/wallet/rpc/`, `src/kernel/chainparams.cpp`), treat as ground truth for anything this doc references
 - **Consumer:** this plugin, see [`README.MD`](../README.MD)
-- **See also:** [`elektron-net-stack`](https://github.com/kutlusoy/elektron-net-stack) (Docker node setup), [`guideline-wallet-integration.md`](https://github.com/kutlusoy/elektron-net/blob/main/doc-elektron/guideline-wallet-integration.md) (derivation paths, address safety), [`elektron-net-payments`](https://github.com/kutlusoy/elektron-net-payments) (`pay-server`, escrow)
+- **See also:** [`guideline-stack.md`](guideline-stack.md) (all-in-one install with one script), [`elektron-net-stack`](https://github.com/kutlusoy/elektron-net-stack) (Docker node setup), [`guideline-wallet-integration.md`](https://github.com/kutlusoy/elektron-net/blob/main/doc-elektron/guideline-wallet-integration.md) (derivation paths, address safety), [`elektron-net-payments`](https://github.com/kutlusoy/elektron-net-payments) (`pay-server`, escrow)
 
 Requirement levels follow common practice: **MUST** = mandatory for correct or safe operation, **SHOULD** = strongly recommended, **MAY** = optional.
 
-This guideline describes how to set up the plugin from scratch, how to operate it, and how to switch it off again. Section 12 lists what was checked against source code and what has not yet been run on a real system. Nothing here has been tested end to end.
+For a complete install with one script (node, BTCPay Server, plugin, HTTPS) use the [stack guideline](guideline-stack.md) instead. This guideline describes how to set up the plugin step by step, how to operate it, and how to switch it off again. Section 12 lists what was checked against source code and what has not yet been run on a real system. Nothing here has been tested end to end.
 
 ---
 
@@ -32,7 +32,7 @@ This guideline describes how to set up the plugin from scratch, how to operate i
 | `elektrond` with watch-only wallet `btcpay` | No (public descriptor only) | Same host as BTCPay Server, or a host reachable over a private network |
 | BTCPay Server with the ELEK plugin | No | Linux server (production) or a workstation (testing) |
 
-The plugin refuses to run against a wallet that has private keys enabled.
+By default the plugin refuses to run against a wallet that has private keys enabled. A hot wallet on the server is an explicit opt-in, see the [stack guideline](guideline-stack.md).
 
 ## 2. Choose a Deployment Model
 
@@ -310,6 +310,7 @@ Set these for the BTCPay Server container (or process):
 | `BTCPAY_ELEK_DAEMON_USERNAME` | `btcpay` |
 | `BTCPAY_ELEK_DAEMON_PASSWORD` | the plaintext password from `rpcauth.py` |
 | `BTCPAY_ELEK_WALLET_NAME` | `btcpay` (default) |
+| `BTCPAY_ELEK_ALLOW_HOT_WALLET` | `false` (default), see section 9.5 |
 
 For the `btcpayserver-docker` layout, use a custom fragment that adds the variables to the `btcpayserver` service:
 
@@ -447,7 +448,7 @@ The watch-only wallet does not need a private-key backup, it can be rebuilt from
 
 - The RPC port `8332` MUST NOT be reachable from the internet. Docker: do not publish it. Native: bind to `127.0.0.1` or a private network.
 - Use `rpcauth` or a long random `rpcpassword`, never a default.
-- Private keys MUST NOT be present on the BTCPay host or in the node wallet used by BTCPay.
+- Private keys MUST NOT be present on the BTCPay host or in the node wallet used by BTCPay, unless hot wallet mode (`BTCPAY_ELEK_ALLOW_HOT_WALLET=true`) was chosen deliberately. Then keep the balance low and sweep to cold storage, as the stack in `stack/` does.
 - Show and accept only `be1q...` addresses. Do not import legacy descriptors.
 - Keep BTCPay Server, the plugin and the node updated.
 
