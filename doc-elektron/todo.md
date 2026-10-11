@@ -57,13 +57,15 @@ Nothing below could be run where the code was written (no peer access, no .NET S
 
 **Problem.** The plugin has no exchange rate source. Invoices can only be priced directly in ELEK. A merchant who already accepts BTC and Monero on an existing BTCPay Server instance and prices invoices in a fiat currency (EUR, USD) does not get ELEK offered at checkout, because BTCPay cannot convert the fiat amount into ELEK.
 
+**Confirmed in the first real run.** A test invoice of 5 EUR failed with `Unable to get rate(s) ELEK_EUR, this payment method disabled for this invoice`, the rate source reported `ERR_RATE_UNAVAILABLE(kraken, ELEK_EUR)`. A fixed rule such as `ELEK_EUR = 0.50;` in the store rate rules should work around it, BTCPay accepts numeric rules (its own tests use `DOGE_BTC = 2000`), but that was not run yet.
+
 **Goal.** A merchant with a mixed setup can enable ELEK next to BTC and XMR and keep pricing in fiat.
 
 **Tasks.**
 
 - [ ] Read how BTCPay Server resolves rates for a payment method (rate rules, rate providers, the currency pair `ELEK_<fiat>`) and what happens for a currency without any provider
 - [ ] Decide the source: a fixed rate set by the merchant through the store rate rules, an external price feed for ELEK, or both
-- [ ] If the store rate rules can express a fixed pair, document the rule and verify it on a running instance
+- [ ] Verify the fixed rule `ELEK_EUR = 0.50;` in the store rate rules on a running instance and document the exact menu path in the operations guideline (the stack guideline already describes it, unverified)
 - [ ] If a rate provider is needed, implement it in the plugin and register it, with a clear failure state when no price is available (ELEK MUST NOT be offered with a stale or missing rate)
 - [ ] Show the used rate on the checkout and on the invoice page
 - [ ] Add unit tests for the conversion and for the missing-rate case, and a mock of the rate provider for integration tests (the Monero plugin tracks the same need in [issue 46](https://github.com/btcpay-monero/btcpayserver-monero-plugin/issues/46))

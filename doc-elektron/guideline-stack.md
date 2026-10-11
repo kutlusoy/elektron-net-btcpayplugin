@@ -178,7 +178,7 @@ The script can be run again at any time and doubles as the update. Every run che
 1. Open `https://BTCPAY_HOST` (in local mode `http://localhost:49392`) and register the administrator account immediately. The first account that registers becomes the server administrator.
 2. Create a store. Open **Wallets > Elektron Net** in the store and enable ELEK.
 3. Wait until the node has synchronised (`docker compose exec elektrond elektron-cli -conf=/etc/elektron/cli.conf getblockchaininfo` shows `initialblockdownload: false`). The store page shows the node status as well.
-4. Create a small test invoice, see section 7.7 of the operations guideline.
+4. Create a small test invoice, see section 7.7 of the operations guideline. ELEK has no exchange rate source yet, so an invoice priced in EUR or USD fails with `Unable to get rate ELEK_EUR`. Either price the test invoice in `ELEK` (type the currency code), or set a fixed rate for the store: open the store settings, Rates, switch on the advanced rate rules and add a line such as `ELEK_EUR = 0.50;` above the existing `X_X` line (one ELEK costs that many EUR, pick your own test value). BTCPay accepts fixed numbers in rate rules, its own tests use lines like `DOGE_BTC = 2000`. The menu names were not checked on a running instance.
 
 ## 10. Operations
 
@@ -208,7 +208,7 @@ Backups: the signing wallet (watch-only mode) or the wallet backup and passphras
 
 - The node RPC port is not published, and the node binds it to its internal address `172.29.88.251` only (`rpcbind`), not to `0.0.0.0`. Only the internal network (`172.29.88.0/24`) can reach it.
 - PostgreSQL is not published either and listens on its internal address `172.29.88.250` only (`listen_addresses`), not on `0.0.0.0`. Ports `5432` and `8332` are never open on the host, only `80`, `443` and `8333` are (in local mode only `127.0.0.1:49392` and `127.0.0.1:8333`).
-- `.env`, `cli.conf`, `elektron.conf`, `secrets/` and `CREDENTIALS.txt` contain credentials. They are created with mode `600` and are excluded from Git.
+- `.env`, `cli.conf`, `secrets/` and `CREDENTIALS.txt` contain credentials. They are created with mode `600` and are excluded from Git. `elektron.conf` has mode `644` because the node runs as an unprivileged user inside the container and has to read it. It holds only the hashed RPC credential, not the password.
 - The sweep address is fixed in the configuration of the sweeper. The wallet passphrase is mounted into the sweeper only, not into the BTCPay container.
 - While the sweeper has the wallet unlocked (up to 60 seconds, only when a sweep happens), anyone who holds the node RPC credentials could spend. BTCPay Server holds those credentials, so keep the balance low and the sweep threshold small.
 - Anyone with access to the Docker socket on the host can read all secrets. Treat the server accordingly.
@@ -225,6 +225,9 @@ Backups: the signing wallet (watch-only mode) or the wallet backup and passphras
 | Plugin missing in BTCPay | The plugin did not install on startup | `docker compose logs btcpayserver`, then Server Settings > Plugins |
 | ELEK not available in the store | Node still syncing, wallet missing | Store page **Wallets > Elektron Net** shows the reason |
 | Sweeper logs a failed sweep | Wallet locked state, balance too small, RPC unreachable | `docker compose logs sweeper`, test `sendtoaddress` by hand |
+| Node container restarts with `Data directory "/data" contains a "bitcoin.conf" file which is ignored` | The node writes its own `bitcoin.conf` into the data directory and refuses a second configuration file | The image starts the node with `-allowignoredconf=1`. Rebuild with `bash install.sh` if your image is older |
+| Node container restarts with `could not be opened` for the configuration | `elektron.conf` is not readable for the node user | `chmod 644 elektron.conf` (the installer does this on every run) |
+| Invoice in EUR or USD fails with `Unable to get rate(s) ELEK_EUR, this payment method disabled for this invoice` | ELEK has no exchange rate source | Price the invoice in `ELEK`, or add a fixed rate rule such as `ELEK_EUR = 0.50;` in the store rate settings (section 9) |
 | Local mode: `http://localhost:49392` does not open | The stack is still starting, or the port is taken by another program | `docker compose ps`, `docker compose logs btcpayserver`, free the port |
 
 ## 14. Verification Status
@@ -239,13 +242,14 @@ Backups: the signing wallet (watch-only mode) or the wallet backup and passphras
 | Sweeper amount arithmetic, threshold logic, passphrase on stdin, wallet locking on failure | **Simulated** with a stand-in for `elektron-cli`, and **verified** once against a real `elektrond` v4.0.5 in regtest: encrypted wallet created with `-stdin -named createwallet`, 8 ELEK received, 7 ELEK swept with the fee deducted, wallet locked again, 1 ELEK left |
 | Compose file validity and profiles | Checked with `docker compose config` |
 | Fixed container addresses, `listen_addresses` of PostgreSQL and the node `rpcbind` to an internal address | Compose file parsed as YAML, `rpcbind` to a specific address checked on a real node (only that address answers, `elektron-cli` with `rpcconnect` works). The PostgreSQL setting and the fixed addresses were **not run** with Docker |
-| Docker image builds (node, BTCPay with plugin), `docker compose up` | **Not verified**, no registry access where this was written |
+| Runtime libraries of the node image | **Verified** with `readelf` on a build of `elektrond` v4.0.5 with the Dockerfile switches and shared libraries: it needs `libevent_core`, `libevent_extra`, `libevent_pthreads`, `libzmq.so.5`, `libsqlite3.so.0`, `libstdc++`, `libgcc_s`, `libm` and `libc`, `elektron-cli` needs `libevent_core` and `libevent_extra`. The packages in the image cover them. The check used libevent 2.2 from Git, Debian ships 2.1 with the same library names |
+| Docker image builds (node, BTCPay with plugin), `docker compose up` | First real build on Windows with Docker Desktop: the node configure step failed on Cap'n Proto, the plugin build failed on missing `using` lines, the runtime image missed `libevent` core and extra, the node refused a second configuration file. All four are fixed. A complete successful run is not confirmed yet |
 | The BTCPay tag `v<BTCPAY_VERSION>` and the Docker Hub image tag exist | **Not verified** |
 | Plugin installation through the queued `install` command | Read from BTCPay Server source, not run |
 | `rpcauth.py` output format, `elektron-cli -stdin -named` handling, `createwallet` with a passphrase | **Verified** against a real `elektrond` v4.0.5 |
 | Fee estimation for `sendtoaddress` | **Verified** on the real node: without a fallback fee a send fails on a fresh node. The installer sets `fallbackfee=0.0001` and adds it to an existing `elektron.conf` on update |
 | Live node start, real sync, snapshot activation, time from first header to synced | **Not verified**, the environment had no peer access. `tools/measure-sync.sh` is provided for this, it ran against a real node in regtest but not against a real sync |
-| Plugin code compiles and runs | **Not verified**, never built |
+| Plugin code compiles and runs | **Not verified** as a running plugin. The C# code compiled in the first real build after three missing `using` lines were added, the views needed one more |
 
 ## 15. Checklist
 

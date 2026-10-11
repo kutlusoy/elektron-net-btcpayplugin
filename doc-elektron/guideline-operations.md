@@ -124,8 +124,10 @@ docker run -d --name elektrond --restart unless-stopped \
   -v /opt/elektron/data:/data \
   -v /opt/elektron/elektron.conf:/etc/elektron/elektron.conf:ro \
   elektrond:local \
-  elektrond -conf=/etc/elektron/elektron.conf -datadir=/data -printtoconsole
+  elektrond -conf=/etc/elektron/elektron.conf -datadir=/data -allowignoredconf=1 -printtoconsole
 ```
+
+`-allowignoredconf=1` is needed because the node writes its own `bitcoin.conf` into the data directory and otherwise refuses to start with a second configuration file. Make the configuration file readable for the container user (`chmod 644`), it holds only the hashed credential.
 
 The configuration file is mounted outside of `/data` on purpose: the entrypoint runs `chown -R` on `/data` at every start.
 
@@ -159,7 +161,7 @@ After=network-online.target
 
 [Service]
 User=elektron
-ExecStart=/usr/local/bin/elektrond -conf=/etc/elektron/elektron.conf -datadir=/var/lib/elektron -printtoconsole
+ExecStart=/usr/local/bin/elektrond -conf=/etc/elektron/elektron.conf -datadir=/var/lib/elektron -allowignoredconf=1 -printtoconsole
 Restart=on-failure
 TimeoutStopSec=300
 
