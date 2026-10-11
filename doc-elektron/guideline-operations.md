@@ -1,6 +1,6 @@
 # Elektron Net: `elektron-net-btcpayplugin` Operations Guideline
 
-- **Version:** 0.1 (draft)
+- **Version:** 0.2 (draft)
 - **Date:** October 11, 2026
 - **Audience:** Merchants and server operators who want to accept ELEK through BTCPay Server
 - **Reference implementation:** [`elektron-net`](https://github.com/kutlusoy/elektron-net) (`TECHNICAL_SETUP.md`, `Quick-Install.md`, `src/wallet/rpc/`, `src/kernel/chainparams.cpp`), treat as ground truth for anything this doc references
@@ -67,6 +67,7 @@ The `elektron-net` releases (latest at the time of writing: v4.0.5) ship Windows
 | Block time | 60 seconds |
 | Pruning | Mandatory on every node, 197,280 blocks (about 137 days), no archival mode |
 | Account path | `m/84'/1370'/0'` (SLIP-44 coin type 1370) |
+| BTCPay payment method id | `ELEK-CHAIN` |
 
 ## 4. Before You Start
 
@@ -234,7 +235,7 @@ Checks:
 ecli createwallet btcpay true true "" false true true
 ```
 
-The arguments are: name, `disable_private_keys`, `blank`, passphrase, `avoid_reuse`, `descriptors`, `load_on_startup`. The last `true` makes the node load the wallet again after every restart. Without it, a node restart leaves BTCPay without a wallet.
+The arguments are: name, `disable_private_keys`, `blank`, passphrase, `avoid_reuse`, `descriptors`, `load_on_startup`. The last `true` makes the node load the wallet again after every restart. As a second safety net, the plugin asks the node to load the wallet whenever it reports it as not loaded.
 
 Import the public descriptor. Replace the descriptor string with the one from 6.1:
 
@@ -284,7 +285,7 @@ export BTCPAYGEN_LIGHTNING="none"
 . ./btcpay-setup.sh -i
 ```
 
-The default setup includes a Bitcoin chain. Running BTCPay Server without any Bitcoin chain has not been verified for this plugin, see section 12. The plugin does not use the Bitcoin chain, it only needs BTCPay Server itself.
+The default setup includes a Bitcoin chain. BTCPay Server itself can start without any chain: its option `nodefaultchain` (environment variable `BTCPAY_NODEFAULTCHAIN=true`) allows this. Whether the `btcpayserver-docker` generator can produce such a setup has not been verified, so the standard setup is the safe path. The plugin does not use the Bitcoin chain.
 
 Open `https://pay.example.com`, register the first account (it becomes the server administrator) and create a store.
 
@@ -343,7 +344,7 @@ The packer arguments are: directory of the compiled plugin, plugin assembly name
 out/packed/BTCPayServer.Plugins.Elektron/0.1.0/BTCPayServer.Plugins.Elektron.btcpay
 ```
 
-Check out the BTCPay Server submodule at the release tag that matches your running BTCPay version, since the plugin compiles against its API.
+Check out the BTCPay Server submodule at the release tag that matches your running BTCPay version, since the plugin compiles against its API. The GitHub workflow `.github/workflows/dotnet.yml` builds the same package and uploads it as a build artifact.
 
 ### 7.5 Install the Plugin
 
@@ -354,7 +355,9 @@ Check out the BTCPay Server submodule at the release tag that matches your runni
 
 ### 7.6 Enable ELEK for a Store
 
-There is no store settings page in version 0.1. Enable the payment method through the Greenfield API. Create an API key with the permission `btcpay.store.canmodifystoresettings` (Account > Manage Account > API Keys), then:
+As server administrator, open the store, then **Wallets > Elektron Net** in the navigation. The page shows the node status (node, wallet, watch-only check, sync height). Turn on **Enabled**, choose when an invoice counts as settled (store speed policy, zero confirmation, one, six or a custom number of confirmations) and save. The status dot in the navigation turns green once the method is enabled.
+
+Alternatively use the Greenfield API. Create an API key with the permission `btcpay.store.canmodifystoresettings` (Account > Manage Account > API Keys), then:
 
 ```bash
 curl -X PUT https://pay.example.com/api/v1/stores/<storeId>/payment-methods/ELEK-CHAIN \
@@ -363,7 +366,7 @@ curl -X PUT https://pay.example.com/api/v1/stores/<storeId>/payment-methods/ELEK
   -d '{"enabled": true, "config": {}}'
 ```
 
-Optional config field: `InvoiceSettledConfirmationThreshold` (number of confirmations after which a payment counts as settled, overriding the invoice speed policy).
+Optional config field: `InvoiceSettledConfirmationThreshold` (number of confirmations after which a payment counts as settled, overriding the invoice speed policy). The payment method id `ELEK-CHAIN` follows from BTCPay's id format (`<cryptocode>-CHAIN`), the API call itself has not been run.
 
 ### 7.7 First Test
 
@@ -378,7 +381,7 @@ curl -X POST https://pay.example.com/api/v1/stores/<storeId>/invoices \
 
 2. Open the returned `checkoutLink`. A `be1q...` address and a QR code (`elek:` link) are shown.
 3. Pay from any Elektron wallet.
-4. The invoice moves to **Processing** when the transaction is seen and to **Settled** after the required confirmations.
+4. The invoice moves to **Processing** when the transaction is seen and to **Settled** after the required confirmations. The invoice page lists the payment with its confirmations and a link to the explorer.
 5. Confirm that the funds arrive in the signing wallet (it must be synced, section 9.3).
 
 Use small amounts until you have completed this test on your own system.
@@ -407,8 +410,11 @@ Adjust host and port to where BTCPay Server listens. The Docker node image has n
 | Node synced | `ecli getblockchaininfo` | `initialblockdownload: false`, `blocks` close to the explorer height |
 | Wallet loaded | `ecli listwallets` | contains `btcpay` |
 | Wallet watch-only | `ecli -rpcwallet=btcpay getwalletinfo` | `private_keys_enabled: false` |
+| Status in BTCPay | Store, Wallets, Elektron Net | node and wallet available, wallet is watch-only |
 | Plugin active | BTCPay log | no repeated "Node or wallet not available" |
 | Disk | `df -h` | free space for the node data directory |
+
+BTCPay Server also shows its "Your nodes are syncing" notice while the node is unreachable or still synchronising.
 
 ### 9.2 Updates
 
@@ -449,6 +455,8 @@ The watch-only wallet does not need a private-key backup, it can be rebuilt from
 
 ### 10.1 Stop Accepting ELEK (keep everything installed)
 
+Turn off **Enabled** under **Wallets > Elektron Net** in the store, or:
+
 ```bash
 curl -X PUT https://pay.example.com/api/v1/stores/<storeId>/payment-methods/ELEK-CHAIN \
   -H "Authorization: token <api key>" -H "Content-Type: application/json" \
@@ -486,12 +494,13 @@ In both cases set `next_index` in `importdescriptors` to the highest index you h
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | Checkout has no ELEK option | Method not enabled for the store, or node not available | Section 7.6, section 9.1 |
-| "Node or wallet not available" in logs | Node syncing, wallet not loaded, wallet has private keys, wrong credentials | `getblockchaininfo`, `listwallets`, `getwalletinfo`, check env variables |
+| "Node or wallet not available" in logs | Node syncing, wallet missing, wallet has private keys, wrong credentials | `getblockchaininfo`, `listwallets`, `getwalletinfo`, check env variables, check the status page in the store |
 | "BTCPAY_ELEK_DAEMON_URI is not configured" | Variable missing in the BTCPay container | Section 7.3, restart the container |
-| After a node restart payments stop | Wallet was not set to load on startup | `ecli loadwallet btcpay true` |
+| Store page says the wallet holds private keys | The configured wallet is not watch-only | Create a watch-only wallet (section 6.2) and point `BTCPAY_ELEK_WALLET_NAME` to it |
+| After a node restart payments stop | Wallet file missing or renamed, so it cannot be loaded | `ecli listwalletdir`, `ecli loadwallet btcpay true` |
 | HTTP 401 from the node | `rpcauth` and password do not match | Regenerate with `rpcauth.py`, update both sides |
 | Connection refused or timeout | Wrong host name, network not shared, `rpcallowip` too narrow | Section 7.2, widen `rpcallowip` to the Docker subnet |
-| Invoice stays "Processing" | Not enough confirmations for the speed policy | Wait, or lower `InvoiceSettledConfirmationThreshold` |
+| Invoice stays "Processing" | Not enough confirmations for the speed policy | Wait, or lower the settlement threshold in the store |
 | Payment not visible in the signing wallet | Look-ahead too small, wallet not synced | Section 6.3, section 9.3 |
 | Plugin not listed after upload | BTCPay older than 2.3.7, wrong package, no restart | Check version, rebuild, restart |
 | Addresses repeat after a migration | New wallet started at index 0 | Section 10.4 |
@@ -504,9 +513,12 @@ In both cases set `next_index` in `importdescriptors` to the highest index you h
 | Docker image build for the node | Taken from `elektron-net-stack`, not run for this guide |
 | Wallet RPCs (`createwallet`, `importdescriptors`, `listdescriptors`, `deriveaddresses`) | Present in `elektron-net` source, not run against `elektrond` |
 | Plugin upload, restart, uninstall flow and packer arguments | Read from BTCPay Server source |
-| Plugin code compiles and runs | **Not verified**, never built |
-| Greenfield path `ELEK-CHAIN` and currency code `ELEK` | **Not verified** |
-| BTCPay Server without a Bitcoin chain | **Not verified** |
+| BTCPay Server APIs used by the plugin (payment handler, payment service, events, UI extension points, sync summary) | Read from BTCPay Server source at commit `ae3abbb0`, no compiler available |
+| Payment method id `ELEK-CHAIN`, payment id format `txid-vout` | Read from BTCPay Server source |
+| BTCPay Server starts without a default chain (`BTCPAY_NODEFAULTCHAIN`) | Read from BTCPay Server source |
+| Plugin code compiles and runs, unit tests pass | **Not verified**, never built or run |
+| Greenfield call and currency code `ELEK` on invoices | **Not verified** |
+| `btcpayserver-docker` generator without a Bitcoin chain | **Not verified** |
 | Custom fragment mechanism of `btcpayserver-docker` | **Not verified**, from memory, check the current docs |
 | Windows release archive contents | **Not verified**, only asset names were read |
 
@@ -527,8 +539,7 @@ In both cases set `next_index` in `importdescriptors` to the highest index you h
 ## 14. Open Questions
 
 1. Should the project publish a prebuilt `elektrond` Docker image and Linux release binaries to remove the source build from this guide?
-2. Should the plugin get a store settings page so that the Greenfield call in section 7.6 is not needed?
-3. Which wallet software should the project recommend as the signing wallet for merchants?
+2. Which wallet software should the project recommend as the signing wallet for merchants?
 
 ## Links
 

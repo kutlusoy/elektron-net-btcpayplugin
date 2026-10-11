@@ -45,7 +45,7 @@ public class ElektronPlugin : BaseBTCPayServerPlugin
         services.AddBTCPayNetwork(network)
                 .AddTransactionLinkProvider(pmi, new DefaultTransactionLinkProvider(explorerLink));
 
-        services.AddSingleton(ReadConfiguration);
+        services.AddSingleton(provider => ReadConfiguration(provider));
         services.AddHttpClient(ElektronRpcClient.HttpClientName);
         services.AddSingleton<ElektronRpcClient>();
         services.AddSingleton<IElektronRpcProvider, ElektronRpcProvider>();
