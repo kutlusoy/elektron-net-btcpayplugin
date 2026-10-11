@@ -22,7 +22,7 @@ load_conf() {
         value=${value%[\"\']}
         case $key in
             BTCPAY_HOST | BTCPAY_VERSION | ELEKTRON_NET_REF | WALLET_NAME | WALLET_MODE | WATCHONLY_DESCRIPTOR | \
-                SWEEP_ADDRESS | SWEEP_THRESHOLD | SWEEP_KEEP | SWEEP_MINCONF | SWEEP_INTERVAL | AUTO_UPDATE_STACK)
+                SWEEP_ADDRESS | SWEEP_THRESHOLD | SWEEP_KEEP | SWEEP_MINCONF | SWEEP_INTERVAL | AUTO_UPDATE_STACK | LOCAL_MODE)
                 printf -v "$key" '%s' "$value"
                 ;;
             *)
@@ -45,9 +45,21 @@ SWEEP_KEEP="${SWEEP_KEEP:-0}"
 SWEEP_MINCONF="${SWEEP_MINCONF:-6}"
 SWEEP_INTERVAL="${SWEEP_INTERVAL:-300}"
 AUTO_UPDATE_STACK="${AUTO_UPDATE_STACK:-true}"
+LOCAL_MODE="${LOCAL_MODE:-false}"
 RPC_USER="btcpay"
 
-[[ -n $BTCPAY_HOST && $BTCPAY_HOST != *example.com ]] || die "set BTCPAY_HOST in $CONF"
+[[ $LOCAL_MODE == true || $LOCAL_MODE == false ]] || die "LOCAL_MODE must be true or false"
+if [[ $LOCAL_MODE == true ]]; then
+    BTCPAY_HOST="localhost"
+    BTCPAY_PROTO="http"
+    P2P_BIND="127.0.0.1"
+    BASE_URL="http://localhost:49392"
+else
+    [[ -n $BTCPAY_HOST && $BTCPAY_HOST != *example.com ]] || die "set BTCPAY_HOST in $CONF, or set LOCAL_MODE=true to run without a domain"
+    BTCPAY_PROTO="https"
+    P2P_BIND="0.0.0.0"
+    BASE_URL="https://$BTCPAY_HOST"
+fi
 
 case $WALLET_MODE in
     watchonly)
@@ -57,8 +69,11 @@ case $WALLET_MODE in
         [[ $WATCHONLY_DESCRIPTOR == *84h/1370h/* ]] || die "the descriptor path must contain 84h/1370h"
         ;;
     hot)
-        [[ -n $SWEEP_ADDRESS ]] || die "SWEEP_ADDRESS is required in hot mode"
-        [[ $SWEEP_ADDRESS == be1* ]] || die "SWEEP_ADDRESS must be a Bech32 address starting with be1"
+        if [[ -n $SWEEP_ADDRESS ]]; then
+            [[ $SWEEP_ADDRESS == be1* ]] || die "SWEEP_ADDRESS must be a Bech32 address starting with be1"
+        else
+            [[ $LOCAL_MODE == true ]] || die "SWEEP_ADDRESS is required in hot mode, only the local test mode runs without a sweeper"
+        fi
         ;;
     *)
         die "WALLET_MODE must be watchonly or hot"
@@ -143,8 +158,16 @@ if [[ $WALLET_MODE == hot && ! -f secrets/wallet_passphrase ]]; then
     openssl rand -hex 32 > secrets/wallet_passphrase
 fi
 
+profiles=()
+[[ $LOCAL_MODE == true ]] || profiles+=(public)
+if [[ $WALLET_MODE == hot && -n $SWEEP_ADDRESS ]]; then profiles+=(hot); fi
+COMPOSE_PROFILES_VALUE="$(IFS=,; echo "${profiles[*]:-}")"
+
 {
     echo "BTCPAY_HOST=$BTCPAY_HOST"
+    echo "BTCPAY_PROTO=$BTCPAY_PROTO"
+    echo "P2P_BIND=$P2P_BIND"
+    echo "COMPOSE_PROFILES=$COMPOSE_PROFILES_VALUE"
     echo "BTCPAY_VERSION=$BTCPAY_TARGET"
     echo "WALLET_NAME=$WALLET_NAME"
     echo "RPC_USER=$RPC_USER"
@@ -152,7 +175,6 @@ fi
     echo "POSTGRES_PASSWORD=$POSTGRES_PASSWORD"
     if [[ $WALLET_MODE == hot ]]; then
         echo "ELEK_ALLOW_HOT_WALLET=true"
-        echo "COMPOSE_PROFILES=hot"
         echo "SWEEP_ADDRESS=$SWEEP_ADDRESS"
         echo "SWEEP_THRESHOLD=$SWEEP_THRESHOLD"
         echo "SWEEP_KEEP=$SWEEP_KEEP"
@@ -223,7 +245,7 @@ for _ in $(seq 1 60); do
 done
 ecli getblockchaininfo >/dev/null 2>&1 || die "the node RPC did not come up, check: docker compose logs elektrond"
 
-if [[ $WALLET_MODE == hot ]]; then
+if [[ $WALLET_MODE == hot && -n $SWEEP_ADDRESS ]]; then
     [[ $(ecli validateaddress "$SWEEP_ADDRESS") == *'"isvalid": true'* ]] || die "SWEEP_ADDRESS is not a valid address"
 fi
 
@@ -263,6 +285,9 @@ else
 fi
 
 log "Starting the stack"
+if [[ $LOCAL_MODE == true ]]; then
+    docker compose --profile public rm -sf caddy >/dev/null 2>&1 || true
+fi
 docker compose up -d
 
 {
@@ -277,7 +302,7 @@ VERSIONS
   Stack files:      $(git rev-parse --short HEAD 2>/dev/null || echo unknown)
 
 ACCESS
-  BTCPay Server:    https://$BTCPAY_HOST
+  BTCPay Server:    $BASE_URL$([[ $LOCAL_MODE == true ]] && echo " (local mode, plain HTTP, reachable from this computer only)")
   Node RPC user:    $RPC_USER
   Node RPC password: $RPC_PASSWORD
   Database password: $POSTGRES_PASSWORD
@@ -291,8 +316,12 @@ EOF
         cat <<EOF
   Wallet passphrase: $(<secrets/wallet_passphrase)
   Latest wallet backup (inside the node volume): $wallet_backup
-  Sweep address:    $SWEEP_ADDRESS
-  Sweep rule:       above $SWEEP_KEEP + $SWEEP_THRESHOLD ELEK with $SWEEP_MINCONF confirmations, every ${SWEEP_INTERVAL}s
+$(if [[ -n $SWEEP_ADDRESS ]]; then
+    echo "  Sweep address:    $SWEEP_ADDRESS"
+    echo "  Sweep rule:       above $SWEEP_KEEP + $SWEEP_THRESHOLD ELEK with $SWEEP_MINCONF confirmations, every ${SWEEP_INTERVAL}s"
+else
+    echo "  Sweeper:          none (local test mode), the funds stay in this wallet"
+fi)
   Copy a backup out: docker compose cp elektrond:$wallet_backup .
   The wallet file and the passphrase are the only things that protect these funds. Store both off this server.
 EOF
@@ -322,7 +351,7 @@ cat <<EOF
 Done. All data to secure is in $PWD/CREDENTIALS.txt (readable by root only), copy it off this server.
 
 Next steps:
-  1. Open https://$BTCPAY_HOST and register the administrator account right away,
+  1. Open $BASE_URL and register the administrator account right away,
      the first account that registers becomes the server administrator.
   2. Create a store, then open Wallets > Elektron Net in the store and enable it.
   3. The node needs to finish synchronising before payments are accepted,

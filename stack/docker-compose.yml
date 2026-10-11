@@ -10,7 +10,7 @@ services:
         node: ./elektrond
     restart: unless-stopped
     ports:
-      - "8333:8333"
+      - "${P2P_BIND:-0.0.0.0}:8333:8333"
     networks:
       default:
         ipv4_address: 172.29.88.251
@@ -46,6 +46,8 @@ services:
       args:
         BTCPAY_VERSION: ${BTCPAY_VERSION}
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:49392:49392"
     depends_on:
       postgres:
         condition: service_healthy
@@ -56,7 +58,7 @@ services:
       BTCPAY_NODEFAULTCHAIN: "true"
       BTCPAY_BIND: 0.0.0.0:49392
       BTCPAY_ROOTPATH: /
-      BTCPAY_XFORWARDEDPROTO: https
+      BTCPAY_XFORWARDEDPROTO: ${BTCPAY_PROTO:-https}
       BTCPAY_POSTGRES: User ID=btcpay;Password=${POSTGRES_PASSWORD};Host=postgres;Port=5432;Database=btcpayserver;Application Name=btcpayserver;MaxPoolSize=80
       BTCPAY_PLUGINDIR: /datadir/plugins
       BTCPAY_ELEK_DAEMON_URI: http://elektrond:8332
@@ -67,8 +69,10 @@ services:
     volumes:
       - btcpay-data:/datadir
 
+  # Only started with a domain (COMPOSE_PROFILES contains public), not in local mode
   caddy:
     image: caddy:2-alpine
+    profiles: ["public"]
     restart: unless-stopped
     depends_on:
       - btcpayserver

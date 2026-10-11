@@ -1,0 +1,10 @@
+# Shell scripts, Dockerfiles and configs run inside Linux containers, they need LF line endings
+# even when the repository is checked out on Windows
+* text=auto
+*.sh text eol=lf
+*.example text eol=lf
+*.yml text eol=lf
+Dockerfile text eol=lf
+Caddyfile text eol=lf
+stack/btcpay/entrypoint.sh text eol=lf
+stack/elektrond/docker-entrypoint.sh text eol=lf
