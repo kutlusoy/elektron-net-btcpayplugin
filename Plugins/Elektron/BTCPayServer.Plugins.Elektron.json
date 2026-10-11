@@ -1,0 +1,17 @@
+{
+  "Identifier": "BTCPayServer.Plugins.Elektron",
+  "Name": "Elektron Net",
+  "Version": "0.1.0",
+  "Description": "This plugin extends BTCPay Server to enable users to receive payments via Elektron Net (ELEK).",
+  "SystemPlugin": false,
+  "Dependencies": [
+    {
+      "Identifier": "BTCPayServer",
+      "Condition": ">=2.3.7"
+    }
+  ],
+  "Documentation": "https://github.com/kutlusoy/elektron-net-btcpayplugin/blob/main/README.MD",
+  "Source": "https://github.com/kutlusoy/elektron-net-btcpayplugin",
+  "Author": null,
+  "AuthorLink": null
+}

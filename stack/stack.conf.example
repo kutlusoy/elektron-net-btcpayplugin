@@ -1,0 +1,38 @@
+# Copy to stack.conf and edit, then run: bash install.sh
+# One KEY=VALUE per line. Values may be quoted, inline comments are not supported.
+
+# Public host name of BTCPay Server. It must resolve to this server, Caddy requests the certificate.
+BTCPAY_HOST=pay.example.com
+
+# BTCPay Server release the plugin is built against and that is run (version without the leading v).
+# "latest" resolves the newest stable release on every run. Pin a version (for example 2.3.7) if a new
+# release does not work with the plugin yet.
+BTCPAY_VERSION=latest
+
+# elektron-net release (Git tag) the node is built from. "latest" resolves the newest stable v* tag on every run.
+# v4.0.5 was current at the time of writing. Pin a tag only if a release causes problems.
+ELEKTRON_NET_REF=latest
+
+# true: install.sh first fast-forwards this repository (the stack files and the plugin source) before it does anything
+AUTO_UPDATE_STACK=true
+
+# Name of the wallet on the node
+WALLET_NAME=btcpay
+
+# watchonly: private keys stay offline, the node only holds a public descriptor (recommended)
+# hot:       the installer creates an encrypted wallet and a sweeper moves funds to SWEEP_ADDRESS
+WALLET_MODE=watchonly
+
+# watchonly mode: public descriptor from the offline signing wallet, for example
+# wpkh([a1b2c3d4/84h/1370h/0h]xpub6.../0/*)
+WATCHONLY_DESCRIPTOR=
+
+# hot mode: cold storage address (be1...) that receives the swept funds
+SWEEP_ADDRESS=
+# hot mode: sweep when the confirmed balance exceeds SWEEP_KEEP + SWEEP_THRESHOLD (in ELEK)
+SWEEP_THRESHOLD=5
+SWEEP_KEEP=0
+# hot mode: only funds with at least this many confirmations are swept
+SWEEP_MINCONF=6
+# hot mode: seconds between two checks
+SWEEP_INTERVAL=300

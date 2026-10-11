@@ -1,0 +1,24 @@
+<Solution>
+  <Folder Name="/Plugins/">
+    <Project Path="Plugins/Elektron/BTCPayServer.Plugins.Elektron.csproj" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="BTCPayServer.Plugins.UnitTests/BTCPayServer.Plugins.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/btcpayserver/">
+    <Project Path="submodules/btcpayserver/BTCPayServer/BTCPayServer.csproj" />
+    <Project Path="submodules/btcpayserver/BTCPayServer.Abstractions/BTCPayServer.Abstractions.csproj" />
+    <Project Path="submodules/btcpayserver/BTCPayServer.Client/BTCPayServer.Client.csproj" />
+    <Project Path="submodules/btcpayserver/BTCPayServer.Common/BTCPayServer.Common.csproj" />
+    <Project Path="submodules/btcpayserver/BTCPayServer.Data/BTCPayServer.Data.csproj" />
+    <Project Path="submodules/btcpayserver/BTCPayServer.PluginPacker/BTCPayServer.PluginPacker.csproj" />
+    <Project Path="submodules/btcpayserver/BTCPayServer.Rating/BTCPayServer.Rating.csproj" />
+    <Project Path="submodules/btcpayserver/BTCPayServer.Tests/BTCPayServer.Tests.csproj" />
+  </Folder>
+  <Folder Name="/Misc/">
+    <File Path=".gitignore" />
+    <File Path="LICENSE" />
+    <File Path="README.MD" />
+    <File Path="global.json" />
+  </Folder>
+</Solution>

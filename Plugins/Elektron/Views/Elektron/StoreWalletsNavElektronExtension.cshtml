@@ -1,0 +1,27 @@
+@using BTCPayServer.Abstractions.Contracts
+@using BTCPayServer.Plugins.Elektron
+@using BTCPayServer.Plugins.Elektron.Controllers
+@using BTCPayServer.Plugins.Elektron.Services
+@inject SignInManager<ApplicationUser> SignInManager;
+@inject IElektronRpcProvider ElektronRpcProvider;
+@inject IScopeProvider ScopeProvider
+@inject UIElektronStoreController UiElektronStore;
+@{
+    var storeId = ScopeProvider.GetCurrentStoreId();
+}
+@if (SignInManager.IsSignedIn(User) && User.IsInRole(Roles.ServerAdmin) && ElektronRpcProvider.IsConfigured)
+{
+    var item = UiElektronStore.GetVM(Context.GetStoreData());
+    var isActive = !string.IsNullOrEmpty(storeId) &&
+                   ViewContext.RouteData.Values.TryGetValue("Controller", out var controller) &&
+                   string.Equals(controller?.ToString(), "UIElektronStore", StringComparison.OrdinalIgnoreCase);
+    <li class="nav-item">
+        <a class="nav-link @(isActive ? "active" : "")"
+           asp-route-storeId="@storeId"
+           asp-action="GetStoreElektronPaymentMethod"
+           asp-controller="UIElektronStore">
+            <span class="me-2 btcpay-status btcpay-status--@(item.Enabled ? "enabled" : "pending")"></span>
+            <span>Elektron Net</span>
+        </a>
+    </li>
+}

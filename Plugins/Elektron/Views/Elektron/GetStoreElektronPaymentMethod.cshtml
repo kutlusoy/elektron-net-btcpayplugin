@@ -1,0 +1,109 @@
+@using BTCPayServer.Abstractions.Models
+@using BTCPayServer.Plugins.Elektron
+@using BTCPayServer.Plugins.Elektron.ViewModels
+@model ElektronPaymentMethodViewModel
+
+@{
+    ViewData.SetLayoutModel(new LayoutModel(ElektronPlugin.CryptoCode, StringLocalizer["{0} Settings", ElektronPlugin.CryptoCode]));
+    Layout = "_Layout";
+}
+
+<partial name="_StatusMessage" />
+
+<div class="row">
+    <div class="col-md-8">
+        @if (!ViewContext.ModelState.IsValid)
+        {
+            <div asp-validation-summary="All"></div>
+        }
+
+        @if (!Model.Configured)
+        {
+            <div class="alert alert-warning" role="alert">
+                Elektron Net is not configured. Set BTCPAY_ELEK_DAEMON_URI and restart BTCPay Server.
+            </div>
+        }
+        else
+        {
+            @if (Model.Summary != null)
+            {
+                <div class="card">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item">Node available: @Model.Summary.DaemonAvailable</li>
+                        <li class="list-group-item">Wallet available: @Model.Summary.WalletAvailable</li>
+                        <li class="list-group-item">Wallet is watch-only: @Model.Summary.WalletWatchOnly</li>
+                        <li class="list-group-item">Synced: @Model.Summary.Synced (height @Model.Summary.Height)</li>
+                        <li class="list-group-item">Last updated: @Model.Summary.UpdatedAt</li>
+                    </ul>
+                </div>
+                @if (Model.Summary.WalletAvailable && !Model.Summary.WalletWatchOnly)
+                {
+                    @if (Model.AllowHotWallet)
+                    {
+                        <div class="alert alert-warning mt-3" role="alert">
+                            Hot wallet mode: the configured wallet holds private keys on this server. Keep its balance low and sweep received funds to cold storage.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-danger mt-3" role="alert">
+                            The configured wallet holds private keys. Payments are disabled until a watch-only wallet is used or hot wallet mode is enabled by the operator.
+                        </div>
+                    }
+                }
+            }
+
+            <form method="post" asp-action="GetStoreElektronPaymentMethod"
+                  asp-route-storeId="@Context.GetRouteValue("storeId")"
+                  class="mt-4">
+
+                <div class="form-group d-flex align-items-center">
+                    <input asp-for="Enabled" type="checkbox" class="btcpay-toggle me-3"/>
+                    <label class="form-check-label" asp-for="Enabled"></label>
+                    <span asp-validation-for="Enabled" class="text-danger"></span>
+                </div>
+
+                <div class="form-group">
+                    <label asp-for="SettlementConfirmationThresholdChoice" class="form-label"></label>
+                    <a href="https://docs.btcpayserver.org/FAQ/Stores/#consider-the-invoice-confirmed-when-the-payment-transaction" target="_blank" rel="noreferrer noopener" title="@StringLocalizer["More information..."]">
+                        <vc:icon symbol="info"/>
+                    </a>
+                    <select
+                        asp-for="SettlementConfirmationThresholdChoice"
+                        asp-items="Html.GetEnumSelectList<ElektronSettlementThresholdChoice>()"
+                        class="form-select w-auto"
+                        onchange="
+                        document.getElementById('unconfirmed-warning').hidden = this.value !== '@((int)ElektronSettlementThresholdChoice.ZeroConfirmation)';
+                        document.getElementById('custom-confirmation-value').hidden = this.value !== '@((int)ElektronSettlementThresholdChoice.Custom)';">
+                    </select>
+                    <span asp-validation-for="SettlementConfirmationThresholdChoice" class="text-danger"></span>
+                    <p class="info-note my-3 text-warning" id="unconfirmed-warning" role="alert" hidden="@(Model.SettlementConfirmationThresholdChoice is not ElektronSettlementThresholdChoice.ZeroConfirmation)">
+                        <vc:icon symbol="warning"/>
+                        <span text-translate="true">Choosing to accept an unconfirmed invoice can lead to double-spending and is strongly discouraged.</span>
+                    </p>
+                </div>
+
+                <div class="form-group" id="custom-confirmation-value" hidden="@(Model.SettlementConfirmationThresholdChoice is not ElektronSettlementThresholdChoice.Custom)">
+                    <label asp-for="CustomSettlementConfirmationThreshold" class="form-label"></label>
+                    <input
+                        asp-for="CustomSettlementConfirmationThreshold"
+                        type="number"
+                        value="@(Model.CustomSettlementConfirmationThreshold)"
+                        class="form-control w-auto"
+                        min="0"
+                        max="100"
+                        pattern="\d+"/>
+                    <span asp-validation-for="CustomSettlementConfirmationThreshold" class="text-danger"></span>
+                </div>
+
+                <div class="form-group">
+                    <button type="submit" class="btn btn-primary" id="SaveButton">Save</button>
+                </div>
+            </form>
+        }
+    </div>
+</div>
+
+@section PageFootContent {
+    @await Html.PartialAsync("_ValidationScriptsPartial")
+}

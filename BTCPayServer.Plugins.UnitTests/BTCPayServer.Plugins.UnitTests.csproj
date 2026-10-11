@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+        <IsTestProject>true</IsTestProject>
+        <OutputType>Exe</OutputType>
+        <AssemblyName>BTCPayServer.Plugins.UnitTests</AssemblyName>
+        <CoverletOutput>$(MSBuildProjectDirectory)/coverage/</CoverletOutput>
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+        <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Moq" Version="4.21.0" />
+        <PackageReference Include="coverlet.MTP" Version="10.1.0" />
+        <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.11.2" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Plugins\Elektron\BTCPayServer.Plugins.Elektron.csproj" />
+        <ProjectReference Include="..\submodules\btcpayserver\BTCPayServer.Tests\BTCPayServer.Tests.csproj" />
+    </ItemGroup>
+
+    <ItemDefinitionGroup>
+        <ProjectReference>
+            <Properties>StaticWebAssetsEnabled=false</Properties>
+        </ProjectReference>
+    </ItemDefinitionGroup>
+</Project>
