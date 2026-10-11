@@ -108,6 +108,7 @@ bind=0.0.0.0:8333
 maxconnections=125
 addresstype=bech32
 disablewallet=0
+fallbackfee=0.0001
 
 rpcbind=0.0.0.0
 rpcallowip=172.16.0.0/12
@@ -174,18 +175,19 @@ alias ecli='elektron-cli -conf=/etc/elektron/elektron.conf -datadir=/var/lib/ele
 ### 5.3 Windows
 
 1. Download `elektron-net-windows-v4.0.5_setup.exe` (installer) or `..._portable.zip` from the [releases page](https://github.com/kutlusoy/elektron-net/releases) and check the SHA-256 digest shown there.
-2. Start the daemon once so that it creates `%LOCALAPPDATA%\Elektron\bitcoin.conf` (if you upgraded from an older version that already uses `%APPDATA%\Elektron`, that directory stays in use). Stop it and add the following lines to that file. Keep the seed and `addnode` lines the node wrote, they are needed to find peers:
+2. Start the daemon once so that it creates `%LOCALAPPDATA%\Elektron\bitcoin.conf` (if you upgraded from an older version that already uses `%APPDATA%\Elektron`, that directory stays in use). Stop it and edit that file. Keep the seed and `addnode` lines the node wrote, they are needed to find peers. The generated file already contains `rpcuser=elek`, `rpcpassword=pass`, `rpcbind=127.0.0.1`, `rpcallowip=127.0.0.1` and `listen=1`: do not append duplicates, change the existing lines. The default password `pass` MUST be replaced. Then set or add:
 
 ```ini
 server=1
 listen=1
 addresstype=bech32
 disablewallet=0
-rpcbind=127.0.0.1
-rpcallowip=127.0.0.1
+fallbackfee=0.0001
 rpcuser=btcpay
 rpcpassword=<long random password>
 ```
+
+`fallbackfee` is needed because a fresh or snapshot-synced node has no fee history, and without it every send fails with "Fee estimation failed. Fallbackfee is disabled".
 
 3. Start the daemon from a terminal: `elektrond.exe -printtoconsole`.
 4. Use `elektron-cli.exe` for all commands (`ecli` below).
@@ -516,13 +518,16 @@ In both cases set `next_index` in `importdescriptors` to the highest index you h
 | Payment not visible in the signing wallet | Look-ahead too small, wallet not synced | Section 6.3, section 9.3 |
 | Plugin not listed after upload | BTCPay older than 2.3.7, wrong package, no restart | Check version, rebuild, restart |
 | Addresses repeat after a migration | New wallet started at index 0 | Section 10.4 |
+| Sending fails with "Fee estimation failed. Fallbackfee is disabled" | No fee history yet and no `fallbackfee` in the node config | Add `fallbackfee=0.0001`, restart the node |
 
 ## 12. Verification Status
 
 | Statement | Status |
 |---|---|
 | Node binaries, ports, config name | Taken from `TECHNICAL_SETUP.md`, `Quick-Install.md` and the stack Dockerfile |
-| Data directories and config file name | Read from the `elektron-net` source (data directory selection, config creation), not run |
+| Data directories and config file name | Read from the `elektron-net` source (data directory selection, config creation), not run. The generated `bitcoin.conf` content (default `rpcuser=elek`, `rpcpassword=pass`) was seen on a real first start |
+| Node built natively from the v4.0.5 sources and run in regtest and offline on the main chain | **Verified**: `createwallet` with the installer arguments, `importdescriptors`, `deriveaddresses` equals the first `getnewaddress`, `listreceivedbyaddress` and `gettransaction` return the fields the plugin reads, error codes -18 and -35, `rpcauth.py` output, main chain descriptor path `84h/1370h/0h` and `be1` addresses |
+| Fee estimation for sends | **Verified** on the real node: without `-fallbackfee` a send fails on a fresh node, so the stack config sets `fallbackfee=0.0001` |
 | Live node setup, real sync, snapshot activation and the time from first header to synced | **Not verified**, no network access for peers where this was written. Run `measure-sync.sh` and record the figures |
 | `measure-sync.sh` logic | Simulated with a stand-in for `elektron-cli` and a sample log |
 | Docker image build for the node | Taken from `elektron-net-stack`, not run for this guide |

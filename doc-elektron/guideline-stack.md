@@ -103,12 +103,12 @@ The sweeper checks every `SWEEP_INTERVAL` seconds. When the confirmed balance (a
 2. Checks the wallet settings: public `wpkh` descriptors with the path `84h/1370h` only, no private keys, Bech32 sweep address only
 3. Resolves the newest stable releases of `elektron-net` and BTCPay Server (`latest` is the default for both, the elektron-net release current at the time of writing is v4.0.5), then clones or updates `elektron-src/` to that tag. Before this it fast-forwards this repository itself (`AUTO_UPDATE_STACK`) and restarts once if the stack files changed
 4. Generates the RPC password and the database password once and keeps them in `.env` on re-runs
-5. Writes `elektron.conf` (node, with seed nodes, `addnode` entries and a hashed RPC credential; inside the container the data directory is `/data`, not `~/.elektron`), `cli.conf` (client credentials) and `.env`, all readable by root only
+5. Writes `elektron.conf` (node, with seed nodes, `addnode` entries, `fallbackfee` and a hashed RPC credential; inside the container the data directory is `/data`, not `~/.elektron`), `cli.conf` (client credentials) and `.env`, all readable by root only
 6. Builds the images, starts the node and the database and waits for the RPC
 7. Creates the wallet (watch-only with the imported descriptor, or encrypted hot wallet), or loads it if it already exists
 8. Starts the whole stack and writes `CREDENTIALS.txt`: one file with everything worth securing (versions, URL, node RPC and database passwords, wallet name and mode, the public descriptor and first address in watch-only mode, the wallet passphrase, the latest wallet backup path and the sweep rule in hot mode, the files to keep and the backup commands). Copy it off the server and delete it there if you prefer
 
-The script can be run again at any time and doubles as the update. Every run checks for new releases, rebuilds the images only when something changed and recreates only the changed containers. It reuses the existing secrets from `.env` and `secrets/`, the existing wallet and the existing `elektron.conf`, and rewrites `CREDENTIALS.txt` from them. In hot mode every run also writes a dated wallet backup inside the node volume. If the build of a new release fails, the installer stops before it touches the running stack and restores the previous `.env`. A new release can still fail at runtime, for example when BTCPay Server changes an API the plugin uses, so check the store page afterwards. Pin `BTCPAY_VERSION` or `ELEKTRON_NET_REF` in `stack.conf` to go back to the previous release.
+The script can be run again at any time and doubles as the update. Every run checks for new releases, rebuilds the images only when something changed and recreates only the changed containers. It reuses the existing secrets from `.env` and `secrets/`, the existing wallet and the existing `elektron.conf` (only a missing `fallbackfee` line is added, followed by a node restart), and rewrites `CREDENTIALS.txt` from them. In hot mode every run also writes a dated wallet backup inside the node volume. If the build of a new release fails, the installer stops before it touches the running stack and restores the previous `.env`. A new release can still fail at runtime, for example when BTCPay Server changes an API the plugin uses, so check the store page afterwards. Pin `BTCPAY_VERSION` or `ELEKTRON_NET_REF` in `stack.conf` to go back to the previous release.
 
 ## 7. First Steps After the Install
 
@@ -160,7 +160,7 @@ Backups: the signing wallet (watch-only mode) or the wallet backup and passphras
 | HTTPS does not work | DNS not pointing to the server, ports closed | Check DNS, ports `80` and `443`, `docker compose logs caddy` |
 | Plugin missing in BTCPay | The plugin did not install on startup | `docker compose logs btcpayserver`, then Server Settings > Plugins |
 | ELEK not available in the store | Node still syncing, wallet missing | Store page **Wallets > Elektron Net** shows the reason |
-| Sweeper logs a failed sweep | Fee estimation unavailable, wallet locked state, balance too small | `docker compose logs sweeper`, test `sendtoaddress` by hand |
+| Sweeper logs a failed sweep | Wallet locked state, balance too small, RPC unreachable | `docker compose logs sweeper`, test `sendtoaddress` by hand |
 
 ## 12. Verification Status
 
@@ -168,14 +168,14 @@ Backups: the signing wallet (watch-only mode) or the wallet backup and passphras
 |---|---|
 | Installer flow, generated files and file modes, config validation and rejections | **Simulated** with a stand-in for `docker`, no real containers |
 | Update flow: latest tag resolution (pre-releases ignored), node update to a new tag, BTCPay version change, restore after a failed build, missing image check, self-update with restart | **Simulated** with local Git repositories and a stand-in for `docker`, not against GitHub or Docker Hub |
-| Sweeper amount arithmetic, threshold logic, passphrase on stdin, wallet locking on failure | **Simulated** with a stand-in for `elektron-cli` |
+| Sweeper amount arithmetic, threshold logic, passphrase on stdin, wallet locking on failure | **Simulated** with a stand-in for `elektron-cli`, and **verified** once against a real `elektrond` v4.0.5 in regtest: encrypted wallet created with `-stdin -named createwallet`, 8 ELEK received, 7 ELEK swept with the fee deducted, wallet locked again, 1 ELEK left |
 | Compose file validity and profiles | Checked with `docker compose config` |
 | Docker image builds (node, BTCPay with plugin), `docker compose up` | **Not verified**, no registry access where this was written |
 | The BTCPay tag `v<BTCPAY_VERSION>` and the Docker Hub image tag exist | **Not verified** |
 | Plugin installation through the queued `install` command | Read from BTCPay Server source, not run |
-| `rpcauth.py` output format, `elektron-cli -stdin -named` handling, `createwallet` with a passphrase | **Not verified** against `elektrond` |
-| Fee estimation for `sendtoaddress` on this chain (the node may need a `fallbackfee`) | **Not verified** |
-| Live node start, real sync, snapshot activation, time from first header to synced | **Not verified**, the environment had no peer access. `tools/measure-sync.sh` is provided for this and was only simulated |
+| `rpcauth.py` output format, `elektron-cli -stdin -named` handling, `createwallet` with a passphrase | **Verified** against a real `elektrond` v4.0.5 |
+| Fee estimation for `sendtoaddress` | **Verified** on the real node: without a fallback fee a send fails on a fresh node. The installer sets `fallbackfee=0.0001` and adds it to an existing `elektron.conf` on update |
+| Live node start, real sync, snapshot activation, time from first header to synced | **Not verified**, the environment had no peer access. `tools/measure-sync.sh` is provided for this, it ran against a real node in regtest but not against a real sync |
 | Plugin code compiles and runs | **Not verified**, never built |
 
 ## 13. Checklist
@@ -184,7 +184,6 @@ Backups: the signing wallet (watch-only mode) or the wallet backup and passphras
 - [ ] Verify the BTCPay image tag and that the plugin builds against it
 - [ ] Verify wallet creation, descriptor import and the printed first address on the real node
 - [ ] Run hot mode with a small balance and a test sweep to a cold address
-- [ ] Check fee estimation on the chain and add a `fallbackfee` to `elektron.conf` if the sweep needs it
 - [ ] Test an update of the node and of BTCPay Server with existing data
 - [ ] Publish prebuilt images to remove the long source build
 
