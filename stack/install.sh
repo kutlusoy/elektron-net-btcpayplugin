@@ -2,6 +2,7 @@
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")"
+SELF="$PWD/$(basename "${BASH_SOURCE[0]}")"
 
 log() { printf '==> %s\n' "$*"; }
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
@@ -21,7 +22,7 @@ load_conf() {
         value=${value%[\"\']}
         case $key in
             BTCPAY_HOST | BTCPAY_VERSION | ELEKTRON_NET_REF | WALLET_NAME | WALLET_MODE | WATCHONLY_DESCRIPTOR | \
-                SWEEP_ADDRESS | SWEEP_THRESHOLD | SWEEP_KEEP | SWEEP_MINCONF | SWEEP_INTERVAL)
+                SWEEP_ADDRESS | SWEEP_THRESHOLD | SWEEP_KEEP | SWEEP_MINCONF | SWEEP_INTERVAL | AUTO_UPDATE_STACK)
                 printf -v "$key" '%s' "$value"
                 ;;
             *)
@@ -33,7 +34,7 @@ load_conf() {
 load_conf
 
 BTCPAY_HOST="${BTCPAY_HOST:-}"
-BTCPAY_VERSION="${BTCPAY_VERSION:-2.3.7}"
+BTCPAY_VERSION="${BTCPAY_VERSION:-latest}"
 ELEKTRON_NET_REF="${ELEKTRON_NET_REF:-latest}"
 WALLET_NAME="${WALLET_NAME:-btcpay}"
 WALLET_MODE="${WALLET_MODE:-watchonly}"
@@ -43,6 +44,7 @@ SWEEP_THRESHOLD="${SWEEP_THRESHOLD:-5}"
 SWEEP_KEEP="${SWEEP_KEEP:-0}"
 SWEEP_MINCONF="${SWEEP_MINCONF:-6}"
 SWEEP_INTERVAL="${SWEEP_INTERVAL:-300}"
+AUTO_UPDATE_STACK="${AUTO_UPDATE_STACK:-true}"
 RPC_USER="btcpay"
 
 [[ -n $BTCPAY_HOST && $BTCPAY_HOST != *example.com ]] || die "set BTCPAY_HOST in $CONF"
@@ -70,13 +72,55 @@ docker compose version >/dev/null 2>&1 || die "the docker compose plugin is requ
 
 umask 077
 
-if [[ ! -d elektron-src/.git ]]; then
-    if [[ $ELEKTRON_NET_REF == latest ]]; then
-        ELEKTRON_NET_REF="$(git ls-remote --tags --refs --sort=-v:refname https://github.com/kutlusoy/elektron-net.git 'v*' | head -n 1 | sed 's|.*refs/tags/||')"
-        [[ -n $ELEKTRON_NET_REF ]] || die "could not determine the latest elektron-net release, set ELEKTRON_NET_REF"
+# Newest stable release tag of a repository, for example v4.0.5 (pre-releases are ignored)
+latest_tag() {
+    local tag
+    tag="$(git ls-remote --tags --refs --sort=-v:refname "https://github.com/$1.git" 'v*' | sed 's|.*refs/tags/||' | grep -E '^v[0-9]+(\.[0-9]+)*$' | head -n 1 || true)"
+    [[ -n $tag ]] || die "could not determine the latest release of $1, set it in $CONF"
+    echo "$tag"
+}
+
+# The stack files live in this repository, so the script updates itself first and restarts once
+if [[ $AUTO_UPDATE_STACK == true && -z ${ELEKTRON_STACK_UPDATED:-} ]] && git rev-parse --git-dir >/dev/null 2>&1; then
+    if [[ -z $(git status --porcelain --untracked-files=no) ]]; then
+        before="$(git rev-parse HEAD)"
+        if git pull --ff-only --quiet; then
+            if [[ $before != "$(git rev-parse HEAD)" ]]; then
+                log "Stack files updated, restarting the installer"
+                ELEKTRON_STACK_UPDATED=1 exec bash "$SELF" "$@"
+            fi
+        else
+            log "Could not fast-forward the stack files, continuing with the local copy"
+        fi
+    else
+        log "Local changes in the stack files, skipping the self-update"
     fi
-    log "Cloning elektron-net $ELEKTRON_NET_REF"
-    git clone --depth 1 --branch "$ELEKTRON_NET_REF" https://github.com/kutlusoy/elektron-net.git elektron-src
+fi
+
+NODE_REF="$ELEKTRON_NET_REF"
+[[ $NODE_REF != latest ]] || NODE_REF="$(latest_tag kutlusoy/elektron-net)"
+
+BTCPAY_TARGET="$BTCPAY_VERSION"
+if [[ $BTCPAY_TARGET == latest ]]; then
+    BTCPAY_TARGET="$(latest_tag btcpayserver/btcpayserver)"
+    BTCPAY_TARGET="${BTCPAY_TARGET#v}"
+    docker manifest inspect "btcpayserver/btcpayserver:$BTCPAY_TARGET" >/dev/null 2>&1 \
+        || die "no Docker image btcpayserver/btcpayserver:$BTCPAY_TARGET yet, pin BTCPAY_VERSION to the previous release in $CONF"
+fi
+
+if [[ ! -d elektron-src/.git ]]; then
+    log "Cloning elektron-net $NODE_REF"
+    git clone --depth 1 --branch "$NODE_REF" https://github.com/kutlusoy/elektron-net.git elektron-src
+else
+    node_current="$(git -C elektron-src describe --tags --exact-match 2>/dev/null || git -C elektron-src rev-parse --short HEAD)"
+    if [[ $node_current == "$NODE_REF" ]]; then
+        log "elektron-net is up to date ($NODE_REF)"
+    else
+        [[ -z $(git -C elektron-src status --porcelain --untracked-files=no) ]] || die "elektron-src has local changes, remove them or delete elektron-src/"
+        log "Updating elektron-net $node_current -> $NODE_REF"
+        git -C elektron-src fetch --quiet --depth 1 origin "refs/tags/$NODE_REF:refs/tags/$NODE_REF"
+        git -C elektron-src checkout --quiet "$NODE_REF"
+    fi
 fi
 
 env_value() { [[ -f .env ]] && sed -n "s/^$1=//p" .env | head -n 1 || true; }
@@ -86,6 +130,14 @@ RPC_PASSWORD="${RPC_PASSWORD:-$(openssl rand -hex 24)}"
 POSTGRES_PASSWORD="$(env_value POSTGRES_PASSWORD)"
 POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-$(openssl rand -hex 24)}"
 
+BTCPAY_PREVIOUS="$(env_value BTCPAY_VERSION)"
+if [[ -n $BTCPAY_PREVIOUS && $BTCPAY_PREVIOUS != "$BTCPAY_TARGET" ]]; then
+    log "Updating BTCPay Server $BTCPAY_PREVIOUS -> $BTCPAY_TARGET"
+else
+    log "BTCPay Server $BTCPAY_TARGET"
+fi
+[[ ! -f .env ]] || cp .env .env.bak
+
 mkdir -p secrets
 if [[ $WALLET_MODE == hot && ! -f secrets/wallet_passphrase ]]; then
     openssl rand -hex 32 > secrets/wallet_passphrase
@@ -93,7 +145,7 @@ fi
 
 {
     echo "BTCPAY_HOST=$BTCPAY_HOST"
-    echo "BTCPAY_VERSION=$BTCPAY_VERSION"
+    echo "BTCPAY_VERSION=$BTCPAY_TARGET"
     echo "WALLET_NAME=$WALLET_NAME"
     echo "RPC_USER=$RPC_USER"
     echo "RPC_PASSWORD=$RPC_PASSWORD"
@@ -143,7 +195,11 @@ ecli() { docker compose exec -T elektrond elektron-cli -conf=/etc/elektron/cli.c
 wcli() { ecli -rpcwallet="$WALLET_NAME" "$@"; }
 
 log "Building images (the node build takes a while)"
-docker compose build
+if ! docker compose build; then
+    [[ ! -f .env.bak ]] || mv .env.bak .env
+    die "the build failed, the running stack was not touched. A new release may not work with this plugin yet, pin ELEKTRON_NET_REF or BTCPAY_VERSION to the previous release in $CONF"
+fi
+rm -f .env.bak
 
 log "Starting the node and the database"
 docker compose up -d elektrond postgres

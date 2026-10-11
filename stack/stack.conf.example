@@ -4,13 +4,17 @@
 # Public host name of BTCPay Server. It must resolve to this server, Caddy requests the certificate.
 BTCPAY_HOST=pay.example.com
 
-# BTCPay Server release the plugin is built against and that is run (Git tag without the leading v).
-# Use the newest release the plugin builds against.
-BTCPAY_VERSION=2.3.7
+# BTCPay Server release the plugin is built against and that is run (version without the leading v).
+# "latest" resolves the newest stable release on every run. Pin a version (for example 2.3.7) if a new
+# release does not work with the plugin yet.
+BTCPAY_VERSION=latest
 
-# elektron-net release (Git tag) the node is built from. "latest" picks the newest v* tag.
-# v4.0.5 was current at the time of writing, always use the newest release.
+# elektron-net release (Git tag) the node is built from. "latest" resolves the newest stable v* tag on every run.
+# v4.0.5 was current at the time of writing. Pin a tag only if a release causes problems.
 ELEKTRON_NET_REF=latest
+
+# true: install.sh first fast-forwards this repository (the stack files and the plugin source) before it does anything
+AUTO_UPDATE_STACK=true
 
 # Name of the wallet on the node
 WALLET_NAME=btcpay
