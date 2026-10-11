@@ -50,15 +50,16 @@ Platform support:
 | BTCPay Server | Docker (`btcpayserver-docker`), recommended | Docker Desktop (testing only) | Docker Desktop (testing only) |
 | Plugin build (.NET 10 SDK) | Yes | Yes | Yes |
 
-The `elektron-net` releases (latest at the time of writing: v4.0.5) ship Windows binaries only. On Linux and macOS the node is built from source.
+The `elektron-net` releases ship Windows binaries only. On Linux and macOS the node is built from source. Version numbers in this guide (current release at the time of writing: v4.0.5) are examples. You SHOULD always use the newest release on the [releases page](https://github.com/kutlusoy/elektron-net/releases) and replace `v4.0.5` in file names and Git tags accordingly.
 
 ## 3. Fixed Facts
 
 | Item | Value |
 |---|---|
 | Daemon, CLI | `elektrond`, `elektron-cli` |
-| Default data directory | `~/.bitcoin` (Linux, macOS), `%APPDATA%\Bitcoin` (Windows) |
-| Config file | `bitcoin.conf` by default, any name with `-conf=`; the Docker stack uses `elektron.conf` |
+| Default data directory | `~/.elektron` (Linux), `~/Library/Application Support/Elektron` (macOS), `%LOCALAPPDATA%\Elektron` (Windows) |
+| Legacy data directories | `%APPDATA%\Elektron` (Windows) and `~/Library/Application Support/Bitcoin` (macOS) from older versions are still used when they exist and the new one does not |
+| Config file | `elektron.conf` is NOT used by the node by default: the file inside the data directory is still named `bitcoin.conf`. It is created on the first start and contains the seed and `addnode` lines. Any other file with `-conf=` (the Docker stack uses `elektron.conf` that way) |
 | Mainnet ports | P2P `8333`, RPC `8332` |
 | Testnet3 / Regtest ports | P2P `18333` / `18444`, RPC `18332` / `18443` |
 | Address format | Bech32 with prefix `be` (`be1q...`) |
@@ -173,7 +174,7 @@ alias ecli='elektron-cli -conf=/etc/elektron/elektron.conf -datadir=/var/lib/ele
 ### 5.3 Windows
 
 1. Download `elektron-net-windows-v4.0.5_setup.exe` (installer) or `..._portable.zip` from the [releases page](https://github.com/kutlusoy/elektron-net/releases) and check the SHA-256 digest shown there.
-2. Create `%APPDATA%\Bitcoin\bitcoin.conf`:
+2. Start the daemon once so that it creates `%LOCALAPPDATA%\Elektron\bitcoin.conf` (if you upgraded from an older version that already uses `%APPDATA%\Elektron`, that directory stays in use). Stop it and add the following lines to that file. Keep the seed and `addnode` lines the node wrote, they are needed to find peers:
 
 ```ini
 server=1
@@ -193,7 +194,7 @@ For a permanent installation run `elektrond.exe` as a service (for example with 
 
 ### 5.4 macOS
 
-Build from source following `doc/build-osx.md`, use the Linux native layout (data directory `~/.bitcoin`, `bitcoin.conf`), and start `elektrond` with `launchd` or in a terminal for testing.
+Build from source following `doc/build-osx.md`, use the Linux native layout, but note the macOS data directory `~/Library/Application Support/Elektron` (an older `.../Bitcoin` directory is still used when it exists). The config file there is `bitcoin.conf` and is created on the first start. Run `elektrond` with `launchd` or in a terminal for testing.
 
 ### 5.5 Wait for Synchronisation
 
@@ -202,6 +203,16 @@ ecli getblockchaininfo
 ```
 
 The node is ready when `initialblockdownload` is `false`. Do not continue before that. The plugin reports the payment method as unavailable while the node is syncing.
+
+**Snapshot bootstrap.** A new node does not replay the whole chain. After the headers are known it fetches a UTXO snapshot from a peer that offers it (service bit `NODE_SNAPSHOT`), stores it under `<datadir>/snapshots/`, activates it and then syncs the remaining blocks. The log lines are tagged `[snapshot]` (`Initialized download`, `Download complete`, `Successfully activated`), and `elektron-cli getchainstates` shows the snapshot chainstate. Nothing has to be configured. Caveat: in the current code the snapshot hash announced by the first peer is accepted, so bootstrap only against nodes you trust (the official `addnode` entries) and use the newest release, because this check may be tightened in a later version.
+
+**Measure the sync time.** `stack/tools/measure-sync.sh` polls the node and prints the time from the first downloaded header to the finished sync, plus the snapshot phases if `LOG_FILE` points to `debug.log`:
+
+```bash
+LOG_FILE=~/.elektron/debug.log INTERVAL=10 bash stack/tools/measure-sync.sh
+# Docker stack
+ELEKTRON_CLI="docker compose exec -T elektrond elektron-cli -conf=/etc/elektron/cli.conf" bash stack/tools/measure-sync.sh
+```
 
 ## 6. Part B: Keys and the Watch-Only Wallet
 
@@ -510,7 +521,10 @@ In both cases set `next_index` in `importdescriptors` to the highest index you h
 
 | Statement | Status |
 |---|---|
-| Node binaries, ports, config name, data directory | Taken from `TECHNICAL_SETUP.md`, `Quick-Install.md` and the stack Dockerfile |
+| Node binaries, ports, config name | Taken from `TECHNICAL_SETUP.md`, `Quick-Install.md` and the stack Dockerfile |
+| Data directories and config file name | Read from the `elektron-net` source (data directory selection, config creation), not run |
+| Live node setup, real sync, snapshot activation and the time from first header to synced | **Not verified**, no network access for peers where this was written. Run `measure-sync.sh` and record the figures |
+| `measure-sync.sh` logic | Simulated with a stand-in for `elektron-cli` and a sample log |
 | Docker image build for the node | Taken from `elektron-net-stack`, not run for this guide |
 | Wallet RPCs (`createwallet`, `importdescriptors`, `listdescriptors`, `deriveaddresses`) | Present in `elektron-net` source, not run against `elektrond` |
 | Plugin upload, restart, uninstall flow and packer arguments | Read from BTCPay Server source |
