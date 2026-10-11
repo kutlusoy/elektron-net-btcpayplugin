@@ -226,7 +226,7 @@ Checks:
 - The path MUST show `84h/1370h/0h`. If it shows `0h` as coin type, the wallet predates the SLIP-44 change and you should create a new wallet.
 - Use the `wpkh` (native SegWit) descriptor only. Do not import the legacy `pkh` descriptor, it produces addresses that are also valid on Bitcoin mainnet.
 - Never copy a descriptor that contains `xprv`. Never run `listdescriptors true` on a machine that is connected to BTCPay.
-- Back up the wallet seed or `dumpwallet` equivalent offline. See `howto-coinsweep-legacy-wallet.md` in `elektron-net` if you hold older wallets.
+- Back up the wallet offline right after creation (`backupwallet`, plus a written record of the descriptors from `listdescriptors true` on the offline machine only). See `howto-coinsweep-legacy-wallet.md` in `elektron-net` if you hold older wallets.
 
 ### 6.2 Create the Watch-Only Wallet on the Payment Node
 

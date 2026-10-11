@@ -5,7 +5,7 @@
 - **Audience:** Plugin developers, merchants running BTCPay Server who want to accept ELEK
 - **Reference implementation:** [`elektron-net`](https://github.com/kutlusoy/elektron-net) (`src/wallet/rpc/`, `src/wallet/init.cpp`, `src/kernel/chainparams.cpp`), treat as ground truth for anything this doc references
 - **Pattern source:** [`btcpayserver-monero-plugin`](https://github.com/btcpay-monero/btcpayserver-monero-plugin) (MIT), structure of a BTCPay Server plugin that does not use NBXplorer
-- **See also:** [`elektron-net-payments`](https://github.com/kutlusoy/elektron-net-payments) (`pay-server`, escrow), [`elektron-net-mempool`](https://github.com/kutlusoy/elektron-net-mempool) (block explorer)
+- **See also:** [`doc-elektron/guideline-operations.md`](doc-elektron/guideline-operations.md) (setup, operation, switching off), [`elektron-net-payments`](https://github.com/kutlusoy/elektron-net-payments) (`pay-server`, escrow), [`elektron-net-mempool`](https://github.com/kutlusoy/elektron-net-mempool) (block explorer)
 
 ---
 
@@ -15,7 +15,7 @@ This plugin lets an unmodified [BTCPay Server](https://github.com/btcpayserver/b
 
 In scope for the first versions:
 
-- On-chain receive-only payments (one fresh address per invoice)
+- On-chain receive-only payments (one fresh `be1q...` address per invoice)
 - Payment detection through the RPC interface of `elektrond`
 - Checkout integration (QR code, `elek:` payment link, confirmation counter)
 
@@ -24,6 +24,8 @@ Out of scope:
 - Sending, payouts, pull payments and the built-in BTCPay wallet UI (the merchant manages funds in their own wallet)
 - Escrow (2-of-2 with CLTV timeouts), which is handled by `pay-server` in `elektron-net-payments`
 - Lightning
+
+For installation and day-to-day operation on Linux, Windows and macOS, read the [operations guideline](doc-elektron/guideline-operations.md).
 
 ## 2. Architecture
 
@@ -43,19 +45,20 @@ BTCPay Server's Bitcoin handler depends on NBXplorer. This plugin follows the sa
 
 Payment IDs have the form `<txid>:<vout>`.
 
-The plugin never holds private keys. It requires a watch-only wallet on the node and refuses to run against a wallet with private keys enabled.
+The plugin never holds private keys. It requires a watch-only wallet on the node and refuses to run against a wallet with private keys enabled. Receiving addresses are requested explicitly as Bech32 (`be1q...`), because legacy Base58 addresses are identical to Bitcoin mainnet addresses.
 
 ## 3. Node requirements
 
 `elektrond` MUST be built with wallet support and reachable over RPC. Elektron Net enforces mandatory pruning, which is compatible with this design: the plugin only needs payments to freshly derived addresses and never rescans old history.
 
-Expected one-time setup (commands are based on the standard descriptor wallet RPCs present in `elektron-net`, not yet verified end to end):
+The merchant keeps the private keys in a separate signing wallet. The node used by BTCPay Server holds only the public descriptor, imported without a rescan:
 
 ```bash
-elektron-cli createwallet btcpay true true "" false true
-elektron-cli -rpcwallet=btcpay getdescriptorinfo "wpkh(<account xpub>/0/*)"
-elektron-cli -rpcwallet=btcpay importdescriptors '[{"desc":"wpkh(<account xpub>/0/*)#<checksum>","active":true,"range":[0,999],"timestamp":"now"}]'
+elektron-cli createwallet btcpay true true "" false true true
+elektron-cli -rpcwallet=btcpay importdescriptors '[{"desc":"wpkh([<fingerprint>/84h/1370h/0h]<account xpub>/0/*)#<checksum>","active":true,"internal":false,"range":[0,999],"timestamp":"now"}]'
 ```
+
+The complete procedure, including how to obtain the descriptor from the signing wallet, is in the [operations guideline](doc-elektron/guideline-operations.md).
 
 Optional node settings for instant notifications (the plugin also polls, so these only reduce latency):
 
@@ -69,7 +72,7 @@ blocknotify=curl -s "http://<btcpay host>/elektrondaemoncallback/block?hash=%s"
 | Environment variable | Description | Example |
 |---|---|---|
 | `BTCPAY_ELEK_DAEMON_URI` | **Required.** RPC URI of `elektrond` | `http://127.0.0.1:8332` |
-| `BTCPAY_ELEK_DAEMON_USERNAME` | Optional. RPC user | `rpcuser` |
+| `BTCPAY_ELEK_DAEMON_USERNAME` | Optional. RPC user | `btcpay` |
 | `BTCPAY_ELEK_DAEMON_PASSWORD` | Optional. RPC password | `secret` |
 | `BTCPAY_ELEK_WALLET_NAME` | Optional. Watch-only wallet name (default `btcpay`) | `btcpay` |
 
@@ -82,6 +85,7 @@ The per-store payment method config currently has one field, `InvoiceSettledConf
 ```
 elektron-net-btcpayplugin/
     Plugins/Elektron/       Plugin sources
+    doc-elektron/           Guidelines
     submodules/             BTCPay Server sources (git submodule, not yet added)
 ```
 
@@ -107,9 +111,9 @@ The skeleton has not been compiled yet.
 - [ ] Compile against BTCPay Server 2.3.7 or newer and fix API mismatches
 - [ ] Verify that a network without `DefaultRateRules` registers cleanly
 - [ ] Add the ELEK logo as an embedded resource and set `CryptoImagePath`
-- [ ] Verify wallet creation and descriptor import against `elektrond` (pruned node)
+- [ ] Run the wallet setup from the operations guideline against `elektrond` (pruned node)
 - [ ] Verify `getnewaddress` and `gettransaction` output on a watch-only wallet
-- [ ] Add a store settings page or document the Greenfield call
+- [ ] Add a store settings page or confirm the Greenfield call
 - [ ] Map Elektron testnet and regtest chain names
 - [ ] Handle conflicted and replaced transactions
 - [ ] Unit tests for confirmation policy and payment mapping

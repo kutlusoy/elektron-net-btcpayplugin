@@ -73,8 +73,9 @@ public class ElektronRpcClient(IHttpClientFactory httpClientFactory, ElektronCon
     public async Task<JObject> GetWalletInfo(CancellationToken cancellationToken = default)
         => (JObject)await CallAsync("getwalletinfo", [], true, cancellationToken);
 
+    // Legacy Base58 addresses are identical to Bitcoin mainnet, so Bech32 is requested explicitly
     public async Task<string> GetNewAddress(string label, CancellationToken cancellationToken = default)
-        => (string)await CallAsync("getnewaddress", [label], true, cancellationToken);
+        => (string)await CallAsync("getnewaddress", [label, "bech32"], true, cancellationToken);
 
     public async Task<IReadOnlyList<string>> GetTxIdsForAddress(string address, CancellationToken cancellationToken = default)
     {
