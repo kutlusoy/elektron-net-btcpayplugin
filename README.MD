@@ -5,7 +5,7 @@
 - **Audience:** Plugin developers, merchants running BTCPay Server who want to accept ELEK
 - **Reference implementation:** [`elektron-net`](https://github.com/kutlusoy/elektron-net) (`src/wallet/rpc/`, `src/wallet/init.cpp`, `src/kernel/chainparams.cpp`), treat as ground truth for anything this doc references
 - **Pattern source:** [`btcpayserver-monero-plugin`](https://github.com/btcpay-monero/btcpayserver-monero-plugin) (MIT), structure of a BTCPay Server plugin that does not use NBXplorer
-- **See also:** [`doc-elektron/guideline-operations.md`](doc-elektron/guideline-operations.md) (setup, operation, switching off), [`elektron-net-payments`](https://github.com/kutlusoy/elektron-net-payments) (`pay-server`, escrow), [`elektron-net-mempool`](https://github.com/kutlusoy/elektron-net-mempool) (block explorer)
+- **See also:** [`doc-elektron/guideline-stack.md`](doc-elektron/guideline-stack.md) (one-script payment stack), [`doc-elektron/guideline-operations.md`](doc-elektron/guideline-operations.md) (manual setup, operation, switching off), [`elektron-net-payments`](https://github.com/kutlusoy/elektron-net-payments) (`pay-server`, escrow), [`elektron-net-mempool`](https://github.com/kutlusoy/elektron-net-mempool) (block explorer)
 
 ---
 
@@ -26,7 +26,7 @@ Out of scope:
 - Escrow (2-of-2 with CLTV timeouts), which is handled by `pay-server` in `elektron-net-payments`
 - Lightning
 
-For installation and day-to-day operation on Linux, Windows and macOS, read the [operations guideline](doc-elektron/guideline-operations.md).
+For a complete one-script install (node, PostgreSQL, BTCPay Server with the plugin, HTTPS, optional auto-sweep), read the [stack guideline](doc-elektron/guideline-stack.md). For manual setup and operation on Linux, Windows and macOS, read the [operations guideline](doc-elektron/guideline-operations.md).
 
 ## 2. Architecture
 
@@ -51,7 +51,7 @@ BTCPay Server's Bitcoin handler depends on NBXplorer. This plugin follows the sa
 
 Payment IDs have the form `<txid>-<vout>`, the same format BTCPay Server uses for Bitcoin outpoints, so its default transaction link provider works unchanged. On mainnet, transaction links point to `https://mempool.elektron-net.org/tx/<txid>`.
 
-The plugin never holds private keys. It requires a watch-only wallet on the node and refuses to run against a wallet with private keys enabled. Receiving addresses are requested explicitly as Bech32 (`be1q...`), because legacy Base58 addresses are identical to Bitcoin mainnet addresses.
+The plugin never signs or spends. By default it requires a watch-only wallet on the node and refuses to run against a wallet with private keys enabled. Operators who want the keys on the server can opt in with `BTCPAY_ELEK_ALLOW_HOT_WALLET=true`; funds should then be swept to cold storage regularly, see the [stack guideline](doc-elektron/guideline-stack.md). Receiving addresses are requested explicitly as Bech32 (`be1q...`), because legacy Base58 addresses are identical to Bitcoin mainnet addresses.
 
 ## 3. Node requirements
 
@@ -82,9 +82,10 @@ blocknotify=curl -s "http://<btcpay host>/elektrondaemoncallback/block?hash=%s"
 | `BTCPAY_ELEK_DAEMON_URI` | **Required.** RPC URI of `elektrond` | `http://127.0.0.1:8332` |
 | `BTCPAY_ELEK_DAEMON_USERNAME` | Optional. RPC user | `btcpay` |
 | `BTCPAY_ELEK_DAEMON_PASSWORD` | Optional. RPC password | `secret` |
-| `BTCPAY_ELEK_WALLET_NAME` | Optional. Watch-only wallet name (default `btcpay`) | `btcpay` |
+| `BTCPAY_ELEK_WALLET_NAME` | Optional. Wallet name (default `btcpay`) | `btcpay` |
+| `BTCPAY_ELEK_ALLOW_HOT_WALLET` | Optional. Accept a wallet that holds private keys (default `false`) | `true` |
 
-The wallet is shared by all stores of the BTCPay Server instance, as in the Monero plugin. Use this plugin only on instances that are not shared between unrelated merchants. For that reason the store settings page requires server administrator permission in addition to store settings permission.
+In hot wallet mode the store page shows a warning. The wallet is shared by all stores of the BTCPay Server instance, as in the Monero plugin. Use this plugin only on instances that are not shared between unrelated merchants. For that reason the store settings page requires server administrator permission in addition to store settings permission.
 
 Per store, open **Wallets > Elektron Net** in the store navigation to enable ELEK and choose when an invoice counts as settled. The payment method id is `ELEK-CHAIN`.
 
@@ -94,6 +95,7 @@ Per store, open **Wallets > Elektron Net** in the store navigation to enable ELE
 elektron-net-btcpayplugin/
     Plugins/Elektron/                     Plugin sources
     BTCPayServer.Plugins.UnitTests/       Unit tests
+    stack/                                Docker stack: node, BTCPay Server with the plugin, HTTPS, sweeper, installer
     doc-elektron/                         Guidelines
     btcpay-elektron-plugin.slnx           Solution
     .github/workflows/dotnet.yml          Build, test, plugin package
@@ -118,6 +120,7 @@ The code has not been compiled yet. Its use of BTCPay Server APIs was checked by
 | Wallet created from the BTCPay UI (view key) | Wallet created on the node from a public descriptor, see the operations guideline |
 | `MoneroLoadUpService` opens the wallet at startup | The RPC provider calls `loadwallet` when the node reports the wallet as not loaded |
 | Account index, unlock time, fee estimate | Not applicable, no network fee is added to invoices |
+| View-only wallet only | Watch-only by default, hot wallet mode as an explicit opt-in |
 | Integration tests against a `monerod` regtest setup | Not yet written |
 
 ## 7. Limitations
@@ -129,6 +132,7 @@ The code has not been compiled yet. Its use of BTCPay Server APIs was checked by
 
 ## 8. Checklist
 
+- [ ] Run the stack installer on a clean server (see the verification status in the stack guideline)
 - [ ] Add the BTCPay Server submodule (`.gitmodules` and the gitlink are created by `git submodule add`)
 - [ ] Compile against the BTCPay Server revision and fix API mismatches
 - [ ] Run the unit tests
