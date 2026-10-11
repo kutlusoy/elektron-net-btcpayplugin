@@ -101,14 +101,14 @@ The sweeper checks every `SWEEP_INTERVAL` seconds. When the confirmed balance (a
 
 1. Parses `stack.conf` (it is read, not executed, and unknown keys are rejected)
 2. Checks the wallet settings: public `wpkh` descriptors with the path `84h/1370h` only, no private keys, Bech32 sweep address only
-3. Clones `elektron-net` at `ELEKTRON_NET_REF` into `elektron-src/` (`latest` resolves to the newest `v*` release tag, the release current at the time of writing is v4.0.5)
+3. Resolves the newest stable releases of `elektron-net` and BTCPay Server (`latest` is the default for both, the elektron-net release current at the time of writing is v4.0.5), then clones or updates `elektron-src/` to that tag. Before this it fast-forwards this repository itself (`AUTO_UPDATE_STACK`) and restarts once if the stack files changed
 4. Generates the RPC password and the database password once and keeps them in `.env` on re-runs
 5. Writes `elektron.conf` (node, with seed nodes, `addnode` entries and a hashed RPC credential; inside the container the data directory is `/data`, not `~/.elektron`), `cli.conf` (client credentials) and `.env`, all readable by root only
 6. Builds the images, starts the node and the database and waits for the RPC
 7. Creates the wallet (watch-only with the imported descriptor, or encrypted hot wallet), or loads it if it already exists
 8. Starts the whole stack and writes `CREDENTIALS.txt`
 
-The script can be run again after changing `stack.conf`. It does not replace existing secrets or an existing wallet.
+The script can be run again at any time and doubles as the update. Every run checks for new releases, rebuilds the images only when something changed and recreates only the changed containers. It does not replace existing secrets, an existing wallet or an existing `elektron.conf`. If the build of a new release fails, the installer stops before it touches the running stack and restores the previous `.env`. A new release can still fail at runtime, for example when BTCPay Server changes an API the plugin uses, so check the store page afterwards. Pin `BTCPAY_VERSION` or `ELEKTRON_NET_REF` in `stack.conf` to go back to the previous release.
 
 ## 7. First Steps After the Install
 
@@ -126,9 +126,9 @@ The script can be run again after changing `stack.conf`. It does not replace exi
 | Restart | `docker compose restart btcpayserver` |
 | Node CLI | `docker compose exec elektrond elektron-cli -conf=/etc/elektron/cli.conf <command>` |
 | Wallet CLI | add `-rpcwallet=btcpay` |
-| Update the node | Keep `ELEKTRON_NET_REF=latest` or set a newer tag, delete `elektron-src/`, run `bash install.sh`. Always run the newest release |
+| Update everything | `bash install.sh` (node, BTCPay Server, plugin and stack files, with `latest` settings) |
 | Measure the sync | `ELEKTRON_CLI="docker compose exec -T elektrond elektron-cli -conf=/etc/elektron/cli.conf" LOG_FILE=<path to debug.log> bash tools/measure-sync.sh` (a new node bootstraps from a UTXO snapshot automatically) |
-| Update BTCPay Server and the plugin | Set a new `BTCPAY_VERSION`, run `bash install.sh` (rebuilds the image with the plugin) |
+| Go back to a release | Set `ELEKTRON_NET_REF` or `BTCPAY_VERSION` to that release in `stack.conf`, run `bash install.sh` |
 | Change sweep settings | Edit `stack.conf`, run `bash install.sh` |
 
 Check the [node releases](https://github.com/kutlusoy/elektron-net/releases) regularly, some are mandatory before a given block height.
@@ -167,6 +167,7 @@ Backups: the signing wallet (watch-only mode) or the wallet backup and passphras
 | Statement | Status |
 |---|---|
 | Installer flow, generated files and file modes, config validation and rejections | **Simulated** with a stand-in for `docker`, no real containers |
+| Update flow: latest tag resolution (pre-releases ignored), node update to a new tag, BTCPay version change, restore after a failed build, missing image check, self-update with restart | **Simulated** with local Git repositories and a stand-in for `docker`, not against GitHub or Docker Hub |
 | Sweeper amount arithmetic, threshold logic, passphrase on stdin, wallet locking on failure | **Simulated** with a stand-in for `elektron-cli` |
 | Compose file validity and profiles | Checked with `docker compose config` |
 | Docker image builds (node, BTCPay with plugin), `docker compose up` | **Not verified**, no registry access where this was written |
