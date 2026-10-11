@@ -34,7 +34,7 @@ load_conf
 
 BTCPAY_HOST="${BTCPAY_HOST:-}"
 BTCPAY_VERSION="${BTCPAY_VERSION:-2.3.7}"
-ELEKTRON_NET_REF="${ELEKTRON_NET_REF:-v4.0.5}"
+ELEKTRON_NET_REF="${ELEKTRON_NET_REF:-latest}"
 WALLET_NAME="${WALLET_NAME:-btcpay}"
 WALLET_MODE="${WALLET_MODE:-watchonly}"
 WATCHONLY_DESCRIPTOR="${WATCHONLY_DESCRIPTOR:-}"
@@ -71,6 +71,10 @@ docker compose version >/dev/null 2>&1 || die "the docker compose plugin is requ
 umask 077
 
 if [[ ! -d elektron-src/.git ]]; then
+    if [[ $ELEKTRON_NET_REF == latest ]]; then
+        ELEKTRON_NET_REF="$(git ls-remote --tags --refs --sort=-v:refname https://github.com/kutlusoy/elektron-net.git 'v*' | head -n 1 | sed 's|.*refs/tags/||')"
+        [[ -n $ELEKTRON_NET_REF ]] || die "could not determine the latest elektron-net release, set ELEKTRON_NET_REF"
+    fi
     log "Cloning elektron-net $ELEKTRON_NET_REF"
     git clone --depth 1 --branch "$ELEKTRON_NET_REF" https://github.com/kutlusoy/elektron-net.git elektron-src
 fi
@@ -123,6 +127,11 @@ bind=0.0.0.0:8333
 maxconnections=125
 addresstype=bech32
 disablewallet=0
+
+seednode=seeder.eleknet.org
+seednode=seed0.eleknet.org
+addnode=node1.elektron-net.org:8333
+addnode=node2.elektron-net.org:8333
 
 rpcbind=0.0.0.0
 rpcallowip=172.29.88.0/24
