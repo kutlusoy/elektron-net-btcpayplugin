@@ -7,6 +7,7 @@ namespace BTCPayServer.Plugins.Elektron.ViewModels;
 public class ElektronPaymentMethodViewModel : IValidatableObject
 {
     public bool Configured { get; set; }
+    public bool AllowHotWallet { get; set; }
     public ElektronSummary Summary { get; set; }
     public bool Enabled { get; set; }
 

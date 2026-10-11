@@ -1,0 +1,110 @@
+name: elektron-pay
+
+services:
+  elektrond:
+    image: elektron-pay/elektrond:local
+    build:
+      context: ./elektron-src
+      dockerfile: ../elektrond/Dockerfile
+      additional_contexts:
+        node: ./elektrond
+    restart: unless-stopped
+    ports:
+      - "8333:8333"
+    volumes:
+      - elektrond-data:/data
+      - ./elektron.conf:/etc/elektron/elektron.conf:ro
+      - ./cli.conf:/etc/elektron/cli.conf:ro
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: btcpay
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run install.sh to generate .env}
+      POSTGRES_DB: btcpayserver
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U btcpay -d btcpayserver"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  btcpayserver:
+    image: elektron-pay/btcpayserver:${BTCPAY_VERSION:?run install.sh to generate .env}
+    build:
+      context: ..
+      dockerfile: stack/btcpay/Dockerfile
+      args:
+        BTCPAY_VERSION: ${BTCPAY_VERSION}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      elektrond:
+        condition: service_started
+    environment:
+      BTCPAY_NETWORK: mainnet
+      BTCPAY_NODEFAULTCHAIN: "true"
+      BTCPAY_BIND: 0.0.0.0:49392
+      BTCPAY_ROOTPATH: /
+      BTCPAY_XFORWARDEDPROTO: https
+      BTCPAY_POSTGRES: User ID=btcpay;Password=${POSTGRES_PASSWORD};Host=postgres;Port=5432;Database=btcpayserver;Application Name=btcpayserver;MaxPoolSize=80
+      BTCPAY_PLUGINDIR: /datadir/plugins
+      BTCPAY_ELEK_DAEMON_URI: http://elektrond:8332
+      BTCPAY_ELEK_DAEMON_USERNAME: ${RPC_USER}
+      BTCPAY_ELEK_DAEMON_PASSWORD: ${RPC_PASSWORD}
+      BTCPAY_ELEK_WALLET_NAME: ${WALLET_NAME:-btcpay}
+      BTCPAY_ELEK_ALLOW_HOT_WALLET: ${ELEK_ALLOW_HOT_WALLET:-false}
+    volumes:
+      - btcpay-data:/datadir
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - btcpayserver
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      BTCPAY_HOST: ${BTCPAY_HOST:?run install.sh to generate .env}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+  # Only started in hot wallet mode (COMPOSE_PROFILES=hot)
+  sweeper:
+    image: elektron-pay/elektrond:local
+    profiles: ["hot"]
+    restart: unless-stopped
+    depends_on:
+      - elektrond
+    entrypoint: ["bash", "/opt/sweep/sweep.sh"]
+    command: []
+    environment:
+      WALLET_NAME: ${WALLET_NAME:-btcpay}
+      SWEEP_ADDRESS: ${SWEEP_ADDRESS:-}
+      SWEEP_THRESHOLD: ${SWEEP_THRESHOLD:-5}
+      SWEEP_KEEP: ${SWEEP_KEEP:-0}
+      SWEEP_MINCONF: ${SWEEP_MINCONF:-6}
+      SWEEP_INTERVAL: ${SWEEP_INTERVAL:-300}
+    volumes:
+      - ./sweeper/sweep.sh:/opt/sweep/sweep.sh:ro
+      - ./cli.conf:/etc/elektron/cli.conf:ro
+      - ./secrets/wallet_passphrase:/run/secrets/wallet_passphrase:ro
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.29.88.0/24
+
+volumes:
+  elektrond-data:
+  postgres-data:
+  btcpay-data:
+  caddy-data:
+  caddy-config:

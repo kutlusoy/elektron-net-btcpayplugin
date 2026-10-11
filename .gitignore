@@ -8,3 +8,12 @@ nuget-packages
 *.sln.DotSettings.user
 .DS_Store
 Plugins/packed
+
+# Local stack state and secrets
+stack/.env
+stack/stack.conf
+stack/cli.conf
+stack/elektron.conf
+stack/secrets/
+stack/elektron-src/
+stack/CREDENTIALS.txt

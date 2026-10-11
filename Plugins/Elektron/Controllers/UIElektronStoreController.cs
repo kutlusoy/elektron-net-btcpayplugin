@@ -47,6 +47,7 @@ public class UIElektronStoreController(
         return new ElektronPaymentMethodViewModel
         {
             Configured = rpc.IsConfigured,
+            AllowHotWallet = rpc.AllowHotWallet,
             Summary = rpc.Summary,
             Enabled = config is not null && !storeData.GetStoreBlob().IsExcluded(Pmi),
             SettlementConfirmationThresholdChoice = choice,

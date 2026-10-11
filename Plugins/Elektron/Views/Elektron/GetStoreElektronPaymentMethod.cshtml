@@ -38,9 +38,18 @@
                 </div>
                 @if (Model.Summary.WalletAvailable && !Model.Summary.WalletWatchOnly)
                 {
-                    <div class="alert alert-danger mt-3" role="alert">
-                        The configured wallet holds private keys. Payments are disabled until a watch-only wallet is used.
-                    </div>
+                    @if (Model.AllowHotWallet)
+                    {
+                        <div class="alert alert-warning mt-3" role="alert">
+                            Hot wallet mode: the configured wallet holds private keys on this server. Keep its balance low and sweep received funds to cold storage.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-danger mt-3" role="alert">
+                            The configured wallet holds private keys. Payments are disabled until a watch-only wallet is used or hot wallet mode is enabled by the operator.
+                        </div>
+                    }
                 }
             }
 

@@ -72,7 +72,8 @@ public class ElektronPlugin : BaseBTCPayServerPlugin
             DaemonUri = configuration.GetOrDefault<Uri>("elek_daemon_uri", null),
             Username = configuration.GetOrDefault<string>("elek_daemon_username", null),
             Password = configuration.GetOrDefault<string>("elek_daemon_password", null),
-            WalletName = configuration.GetOrDefault<string>("elek_wallet_name", "btcpay")
+            WalletName = configuration.GetOrDefault<string>("elek_wallet_name", "btcpay"),
+            AllowHotWallet = configuration.GetOrDefault<bool>("elek_allow_hot_wallet", false)
         };
     }
 }

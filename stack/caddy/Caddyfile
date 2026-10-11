@@ -1,0 +1,4 @@
+{$BTCPAY_HOST} {
+    encode zstd gzip
+    reverse_proxy btcpayserver:49392
+}

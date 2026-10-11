@@ -32,6 +32,7 @@ public interface IElektronRpcProvider
 {
     bool IsConfigured { get; }
     bool IsAvailable { get; }
+    bool AllowHotWallet { get; }
     ElektronRpcClient Client { get; }
     ElektronSummary Summary { get; }
     Task<ElektronSummary> UpdateSummary(CancellationToken cancellationToken = default);
@@ -47,9 +48,11 @@ public class ElektronRpcProvider(
     public bool IsConfigured => configuration.IsConfigured;
     public ElektronRpcClient Client => client;
     public ElektronSummary Summary => _summary;
+    public bool AllowHotWallet => configuration.AllowHotWallet;
 
-    // A wallet holding private keys is rejected: the plugin must stay non-custodial
-    public bool IsAvailable => _summary is { DaemonAvailable: true, WalletAvailable: true, WalletWatchOnly: true, Synced: true };
+    // A wallet holding private keys is only accepted when the operator opted in explicitly
+    public bool IsAvailable => _summary is { DaemonAvailable: true, WalletAvailable: true, Synced: true }
+                               && (_summary.WalletWatchOnly || configuration.AllowHotWallet);
 
     public async Task<ElektronSummary> UpdateSummary(CancellationToken cancellationToken = default)
     {
