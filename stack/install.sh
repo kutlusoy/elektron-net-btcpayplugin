@@ -215,44 +215,99 @@ if [[ $WALLET_MODE == hot ]]; then
     [[ $(ecli validateaddress "$SWEEP_ADDRESS") == *'"isvalid": true'* ]] || die "SWEEP_ADDRESS is not a valid address"
 fi
 
+descriptor=""
+first_address=""
+if [[ $WALLET_MODE == watchonly ]]; then
+    descriptor="$(ecli getdescriptorinfo "$WATCHONLY_DESCRIPTOR" | sed -n 's/.*"descriptor": *"\([^"]*\)".*/\1/p')"
+    [[ -n $descriptor ]] || die "the node rejected the descriptor"
+    first_address="$(ecli deriveaddresses "$descriptor" "[0,0]" | grep -o 'be1[a-z0-9]*' | head -n 1)"
+    [[ -n $first_address ]] || die "could not derive the first address"
+fi
+
 wallet_dir="$(ecli listwalletdir)"
+wallet_backup=""
 if [[ $wallet_dir == *"\"name\": \"$WALLET_NAME\""* ]]; then
     log "Wallet $WALLET_NAME already exists, loading it"
     ecli loadwallet "$WALLET_NAME" >/dev/null 2>&1 || true
+    if [[ $WALLET_MODE == hot ]]; then
+        wallet_backup="/data/backup/$WALLET_NAME-$(date -u +%Y%m%dT%H%M%SZ).dat"
+        docker compose exec -T -u elektron elektrond mkdir -p /data/backup
+        wcli backupwallet "$wallet_backup" >/dev/null
+        log "Wallet backup written to $wallet_backup (inside the node volume)"
+    fi
 elif [[ $WALLET_MODE == watchonly ]]; then
     log "Creating the watch-only wallet $WALLET_NAME"
-    descriptor="$(ecli getdescriptorinfo "$WATCHONLY_DESCRIPTOR" | sed -n 's/.*"descriptor": *"\([^"]*\)".*/\1/p')"
-    [[ -n $descriptor ]] || die "the node rejected the descriptor"
     ecli createwallet "$WALLET_NAME" true true "" false true true >/dev/null
     result="$(wcli importdescriptors "[{\"desc\":\"$descriptor\",\"active\":true,\"internal\":false,\"range\":[0,999],\"next_index\":0,\"timestamp\":\"now\"}]")"
     [[ $result == *'"success": true'* ]] || die "importing the descriptor failed: $result"
-    log "First derived address, compare it with your signing wallet: $(ecli deriveaddresses "$descriptor" "[0,0]" | tr -d '[:space:]')"
+    log "First derived address, compare it with your signing wallet: $first_address"
 else
     log "Creating the encrypted hot wallet $WALLET_NAME"
     printf 'passphrase=%s\n' "$(<secrets/wallet_passphrase)" | ecli -stdin -named createwallet \
         wallet_name="$WALLET_NAME" disable_private_keys=false blank=false avoid_reuse=false descriptors=true load_on_startup=true >/dev/null
     docker compose exec -T -u elektron elektrond mkdir -p /data/backup
-    wcli backupwallet "/data/backup/$WALLET_NAME-initial.dat" >/dev/null
+    wallet_backup="/data/backup/$WALLET_NAME-initial.dat"
+    wcli backupwallet "$wallet_backup" >/dev/null
 fi
 
 log "Starting the stack"
 docker compose up -d
 
 {
-    echo "BTCPay Server:    https://$BTCPAY_HOST"
-    echo "Wallet mode:      $WALLET_MODE"
-    echo "Node RPC user:    $RPC_USER"
-    echo "Node RPC password: $RPC_PASSWORD"
+    cat <<EOF
+ELEKTRON NET PAYMENT STACK, DATA TO SECURE
+Written by install.sh on $(date -u +%FT%TZ), rewritten on every run from the existing .env, secrets/ and elektron.conf.
+Keep a copy off this server, in a password manager or on an encrypted drive. Whoever reads this file can use the node RPC.
+
+VERSIONS
+  elektron-net:     $NODE_REF
+  BTCPay Server:    $BTCPAY_TARGET (plugin built against it)
+  Stack files:      $(git rev-parse --short HEAD 2>/dev/null || echo unknown)
+
+ACCESS
+  BTCPay Server:    https://$BTCPAY_HOST
+  Node RPC user:    $RPC_USER
+  Node RPC password: $RPC_PASSWORD
+  Database password: $POSTGRES_PASSWORD
+  Node RPC is internal only (172.29.88.0/24), it is not published on the host
+
+WALLET
+  Name:             $WALLET_NAME
+  Mode:             $WALLET_MODE
+EOF
     if [[ $WALLET_MODE == hot ]]; then
-        echo "Wallet passphrase file: $PWD/secrets/wallet_passphrase"
-        echo "Wallet backup (inside the node volume): /data/backup/$WALLET_NAME-initial.dat"
-        echo "Sweep address:    $SWEEP_ADDRESS"
+        cat <<EOF
+  Wallet passphrase: $(<secrets/wallet_passphrase)
+  Latest wallet backup (inside the node volume): $wallet_backup
+  Sweep address:    $SWEEP_ADDRESS
+  Sweep rule:       above $SWEEP_KEEP + $SWEEP_THRESHOLD ELEK with $SWEEP_MINCONF confirmations, every ${SWEEP_INTERVAL}s
+  Copy a backup out: docker compose cp elektrond:$wallet_backup .
+  The wallet file and the passphrase are the only things that protect these funds. Store both off this server.
+EOF
+    else
+        cat <<EOF
+  Public descriptor: $descriptor
+  First address (index 0): $first_address
+  The private keys are NOT on this server. Back up the signing wallet and its seed offline, that is the only way to spend.
+EOF
     fi
+    cat <<EOF
+
+FILES TO KEEP (in $PWD)
+  stack.conf, .env, cli.conf, elektron.conf, secrets/ (modes 600, excluded from Git)
+
+BACKUP COMMANDS
+  BTCPay database:  docker compose exec -T postgres pg_dump -U btcpay btcpayserver > btcpay-db.sql
+  Node data:        not required, it can be re-synchronised
+
+UPDATE
+  Run bash install.sh again, existing secrets, wallet and elektron.conf are kept.
+EOF
 } > CREDENTIALS.txt
 
 cat <<EOF
 
-Done. Credentials are in $PWD/CREDENTIALS.txt (readable by root only).
+Done. All data to secure is in $PWD/CREDENTIALS.txt (readable by root only), copy it off this server.
 
 Next steps:
   1. Open https://$BTCPAY_HOST and register the administrator account right away,
@@ -264,6 +319,6 @@ EOF
 if [[ $WALLET_MODE == hot ]]; then
     cat <<EOF
   4. Copy the wallet backup and the passphrase file to a safe place off this server:
-     docker compose cp elektrond:/data/backup/$WALLET_NAME-initial.dat .
+     docker compose cp elektrond:$wallet_backup .
 EOF
 fi
