@@ -1,0 +1,10 @@
+**/bin/**/*
+**/obj
+.idea
+.vs/
+TestResults
+nuget-packages
+**/.AssemblyAttributes
+*.sln.DotSettings.user
+.DS_Store
+Plugins/packed
