@@ -1,5 +1,6 @@
 using System;
 using BTCPayServer.Abstractions.Contracts;
+using BTCPayServer.Abstractions.Models;
 using BTCPayServer.Configuration;
 using BTCPayServer.Hosting;
 using BTCPayServer.Payments;
