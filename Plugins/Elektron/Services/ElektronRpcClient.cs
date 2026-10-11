@@ -22,7 +22,9 @@ public record ElektronReceive(string TxId, int Vout, string Address, decimal Amo
 public class ElektronRpcClient(IHttpClientFactory httpClientFactory, ElektronConfiguration configuration)
 {
     public const string HttpClientName = "ELEKclient";
+    public const int WalletNotFound = -18;
     private const int InvalidAddressOrKey = -5;
+    private const int WalletAlreadyLoaded = -35;
 
     public async Task<JToken> CallAsync(string method, object[] args, bool wallet, CancellationToken cancellationToken = default)
     {
@@ -72,6 +74,18 @@ public class ElektronRpcClient(IHttpClientFactory httpClientFactory, ElektronCon
 
     public async Task<JObject> GetWalletInfo(CancellationToken cancellationToken = default)
         => (JObject)await CallAsync("getwalletinfo", [], true, cancellationToken);
+
+    public async Task LoadWallet(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await CallAsync("loadwallet", [configuration.WalletName], false, cancellationToken);
+        }
+        catch (ElektronRpcException ex) when (ex.Code == WalletAlreadyLoaded)
+        {
+            // nothing to do
+        }
+    }
 
     // Legacy Base58 addresses are identical to Bitcoin mainnet, so Bech32 is requested explicitly
     public async Task<string> GetNewAddress(string label, CancellationToken cancellationToken = default)

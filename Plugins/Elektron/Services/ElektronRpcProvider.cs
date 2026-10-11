@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using BTCPayServer.Plugins.Elektron.Configuration;
+using Newtonsoft.Json.Linq;
 
 namespace BTCPayServer.Plugins.Elektron.Services;
 
@@ -74,7 +75,7 @@ public class ElektronRpcProvider(
         {
             try
             {
-                var wallet = await client.GetWalletInfo(cancellationToken);
+                var wallet = await GetWalletInfo(cancellationToken);
                 summary.WalletWatchOnly = (bool?)wallet["private_keys_enabled"] == false;
                 summary.WalletAvailable = true;
             }
@@ -91,5 +92,19 @@ public class ElektronRpcProvider(
             eventAggregator.Publish(new ElektronDaemonStateChange { Summary = summary });
         }
         return summary;
+    }
+
+    // The node does not reload wallets after a restart unless asked to
+    private async Task<JObject> GetWalletInfo(CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await client.GetWalletInfo(cancellationToken);
+        }
+        catch (ElektronRpcException ex) when (ex.Code == ElektronRpcClient.WalletNotFound)
+        {
+            await client.LoadWallet(cancellationToken);
+            return await client.GetWalletInfo(cancellationToken);
+        }
     }
 }

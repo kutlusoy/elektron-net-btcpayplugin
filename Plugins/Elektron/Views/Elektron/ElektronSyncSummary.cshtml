@@ -1,0 +1,22 @@
+@using BTCPayServer.Plugins.Elektron.Services
+@inject IElektronRpcProvider ElektronRpcProvider
+@inject SignInManager<ApplicationUser> SignInManager;
+
+@if (SignInManager.IsSignedIn(User) && User.IsInRole(Roles.ServerAdmin) && ElektronRpcProvider.IsConfigured)
+{
+    var summary = ElektronRpcProvider.Summary;
+    var status = summary.DaemonAvailable
+        ? summary.Synced ? "enabled" : "pending"
+        : "disabled";
+    <h5 class="d-flex align-items-center fw-semibold">
+        <span class="me-2 btcpay-status btcpay-status--@status"></span>
+        @ElektronPlugin.CryptoCode
+    </h5>
+    <ul>
+        <li>Node available: @summary.DaemonAvailable</li>
+        <li>Wallet available: @summary.WalletAvailable</li>
+        <li>Wallet is watch-only: @summary.WalletWatchOnly</li>
+        <li>Last updated: @summary.UpdatedAt</li>
+        <li>Synced: @summary.Synced (height @summary.Height)</li>
+    </ul>
+}

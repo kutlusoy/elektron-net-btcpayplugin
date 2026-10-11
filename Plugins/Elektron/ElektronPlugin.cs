@@ -1,6 +1,5 @@
 using System;
 using BTCPayServer.Abstractions.Contracts;
-using BTCPayServer.Abstractions.Models;
 using BTCPayServer.Configuration;
 using BTCPayServer.Hosting;
 using BTCPayServer.Payments;
@@ -44,7 +43,7 @@ public class ElektronPlugin : BaseBTCPayServerPlugin
 
         services.AddDefaultPrettyName(pmi, network.DisplayName);
         services.AddBTCPayNetwork(network)
-                .AddTransactionLinkProvider(pmi, new ElektronTransactionLinkProvider(explorerLink));
+                .AddTransactionLinkProvider(pmi, new DefaultTransactionLinkProvider(explorerLink));
 
         services.AddSingleton(ReadConfiguration);
         services.AddHttpClient(ElektronRpcClient.HttpClientName);
@@ -59,6 +58,10 @@ public class ElektronPlugin : BaseBTCPayServerPlugin
             (IPaymentLinkExtension)ActivatorUtilities.CreateInstance(provider, typeof(ElektronPaymentLinkExtension), network, pmi));
         services.AddSingleton(provider =>
             (ICheckoutModelExtension)ActivatorUtilities.CreateInstance(provider, typeof(ElektronCheckoutModelExtension), network, pmi));
+
+        services.AddUIExtension("store-wallets-nav", "/Views/Elektron/StoreWalletsNavElektronExtension.cshtml");
+        services.AddUIExtension("store-invoices-payments", "/Views/Elektron/ViewElektronPaymentData.cshtml");
+        services.AddSingleton<ISyncSummaryProvider, ElektronSyncSummaryProvider>();
     }
 
     private static ElektronConfiguration ReadConfiguration(IServiceProvider serviceProvider)

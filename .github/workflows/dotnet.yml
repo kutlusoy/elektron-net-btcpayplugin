@@ -1,0 +1,48 @@
+name: Build and Test
+
+on:
+  push:
+    branches:
+      - "main"
+  pull_request:
+    branches:
+      - "main"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Check out with submodules
+      uses: actions/checkout@v7
+      with:
+        submodules: recursive
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: 10.0.x
+
+    - name: Restore dependencies
+      run: dotnet restore btcpay-elektron-plugin.slnx
+
+    - name: Build
+      run: dotnet build btcpay-elektron-plugin.slnx -maxcpucount:1 -c Release --no-restore
+
+    - name: Run unit tests
+      run: dotnet test --project BTCPayServer.Plugins.UnitTests -c Release --no-build --output Detailed
+
+    - name: Package plugin
+      run: |
+        dotnet publish Plugins/Elektron/BTCPayServer.Plugins.Elektron.csproj -c Release -o out/plugin
+        dotnet run --project submodules/btcpayserver/BTCPayServer.PluginPacker -c Release -- out/plugin BTCPayServer.Plugins.Elektron out/packed
+
+    - name: Upload plugin package
+      uses: actions/upload-artifact@v7
+      with:
+        name: elektron-plugin-${{ github.sha }}
+        path: out/packed

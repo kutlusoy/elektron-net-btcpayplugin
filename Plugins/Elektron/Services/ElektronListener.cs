@@ -115,7 +115,9 @@ public class ElektronListener(
         var status = ConfirmationsRequired(details, invoice.SpeedPolicy) <= details.ConfirmationCount
             ? PaymentStatus.Settled
             : PaymentStatus.Processing;
-        var paymentId = $"{receive.TxId}:{receive.Vout}";
+
+        // Same id format as Bitcoin outpoints, which BTCPay's transaction link providers expect
+        var paymentId = $"{receive.TxId}-{receive.Vout}";
 
         var existing = invoice.GetPayments(false)
             .SingleOrDefault(p => p.PaymentMethodId == Pmi && p.Id == paymentId);
