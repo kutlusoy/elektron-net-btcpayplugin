@@ -2,7 +2,13 @@
 # One KEY=VALUE per line. Values may be quoted, inline comments are not supported.
 
 # Public host name of BTCPay Server. It must resolve to this server, Caddy requests the certificate.
+# Not used when LOCAL_MODE=true.
 BTCPAY_HOST=pay.example.com
+
+# true: run on your own computer without a domain. BTCPay Server is served over plain HTTP at
+# http://localhost:49392 and only this computer can reach it. No Caddy, no certificate, no open ports.
+# In this mode WALLET_MODE=hot works without SWEEP_ADDRESS (test setup, the funds stay in the wallet).
+LOCAL_MODE=false
 
 # BTCPay Server release the plugin is built against and that is run (version without the leading v).
 # "latest" resolves the newest stable release on every run. Pin a version (for example 2.3.7) if a new
@@ -25,9 +31,11 @@ WALLET_MODE=watchonly
 
 # watchonly mode: public descriptor from the offline signing wallet, for example
 # wpkh([a1b2c3d4/84h/1370h/0h]xpub6.../0/*)
+# Create it with: bash tools/export-descriptor.sh
 WATCHONLY_DESCRIPTOR=
 
-# hot mode: cold storage address (be1...) that receives the swept funds
+# hot mode: cold storage address (be1...) that receives the swept funds.
+# Required with a domain, may stay empty in LOCAL_MODE (no sweeper is started then).
 SWEEP_ADDRESS=
 # hot mode: sweep when the confirmed balance exceeds SWEEP_KEEP + SWEEP_THRESHOLD (in ELEK)
 SWEEP_THRESHOLD=5
