@@ -8,6 +8,7 @@ using BTCPayServer.Plugins.Elektron.Configuration;
 using BTCPayServer.Plugins.Elektron.Payments;
 using BTCPayServer.Plugins.Elektron.Services;
 using BTCPayServer.Services;
+using BTCPayServer.Services.Rates;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NBitcoin;
@@ -42,6 +43,14 @@ public class ElektronPlugin : BaseBTCPayServerPlugin
         var explorerLink = chainName == ChainName.Mainnet ? "https://mempool.elektron-net.org/tx/{0}" : null;
         var pmi = PaymentTypes.CHAIN.GetPaymentMethodId(CryptoCode);
 
+        services.AddCurrencyData(new CurrencyData
+        {
+            Code = CryptoCode,
+            Name = network.DisplayName,
+            Divisibility = network.Divisibility,
+            Symbol = null,
+            Crypto = true
+        });
         services.AddDefaultPrettyName(pmi, network.DisplayName);
         services.AddBTCPayNetwork(network)
                 .AddTransactionLinkProvider(pmi, new DefaultTransactionLinkProvider(explorerLink));
