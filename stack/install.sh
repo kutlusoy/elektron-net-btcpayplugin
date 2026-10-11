@@ -14,6 +14,7 @@ CONF="${STACK_CONF:-stack.conf}"
 load_conf() {
     local line key value
     while IFS= read -r line || [[ -n $line ]]; do
+        line=${line%$'\r'}
         [[ $line =~ ^[[:space:]]*(#|$) ]] && continue
         [[ $line =~ ^([A-Z_]+)=(.*)$ ]] || die "invalid line in $CONF: $line"
         key=${BASH_REMATCH[1]}

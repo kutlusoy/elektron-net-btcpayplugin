@@ -87,6 +87,8 @@ WALLET_MODE=watchonly
 WATCHONLY_DESCRIPTOR=wpkh([a1b2c3d4/84h/1370h/0h]xpub6.../0/*)
 ```
 
+Before you run the installer, check that `stack.conf` is saved with your own values. With the defaults (`BTCPAY_HOST=pay.example.com`) the installer stops at once. Set `BTCPAY_HOST` to your domain, or `LOCAL_MODE=true` for a test without a domain (section 6), then the matching `WALLET_MODE` with its descriptor or sweep address. A file saved on Windows with Notepad (CRLF line endings) is accepted.
+
 4. Run the installer as root or as a user in the `docker` group:
 
 ```bash
@@ -149,6 +151,8 @@ cp stack.conf.example stack.conf
 nano stack.conf        # set LOCAL_MODE=true and WALLET_MODE=hot
 bash install.sh
 ```
+
+   If you start the installer from PowerShell with `bash install.sh`, Windows starts the WSL shell. Lines such as `wsl: Failed to translate 'Z:\...'` are harmless warnings about Windows PATH entries that WSL cannot map. To switch them off, add `appendWindowsPath=false` under `[interop]` in `/etc/wsl.conf` and run `wsl --shutdown`. Edit `stack.conf` first (`notepad stack.conf` when the repository lies on the Windows side), the defaults stop the installer.
 
 6. Open `http://localhost:49392` in the Windows browser. Docker Desktop passes the port that the container publishes on `127.0.0.1` through to Windows, so the page is reachable from your Windows PC and from nothing else. Register the administrator account, create a store and enable **Wallets > Elektron Net**. The first build takes a while, and the node has to finish syncing before ELEK can be accepted.
 7. To measure the sync time: `ELEKTRON_CLI="docker compose exec -T elektrond elektron-cli -conf=/etc/elektron/cli.conf" LOG_FILE=<path to debug.log> bash tools/measure-sync.sh`.
