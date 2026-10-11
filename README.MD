@@ -35,6 +35,7 @@ BTCPay Server's Bitcoin handler depends on NBXplorer. This plugin follows the sa
 |---|---|---|
 | Network | `ElektronBtcPayNetwork.cs` | `BTCPayNetworkBase` for `ELEK` (8 decimals, `elek` URI scheme) |
 | Registration | `ElektronPlugin.cs` | Plugin entry point, DI wiring, explorer link |
+| Logo | `elektron.svg` | Embedded resource, copy of `src/qt/res/src/bitcoin-elektron.svg` from `elektron-net` |
 | RPC client | `Services/ElektronRpcClient.cs` | JSON-RPC against `elektrond` and its wallet endpoint |
 | Node state | `Services/ElektronRpcProvider.cs` | Availability, sync state, watch-only check |
 | Block polling | `Services/ElektronSyncService.cs` | Detects new blocks, raises events |
@@ -43,7 +44,7 @@ BTCPay Server's Bitcoin handler depends on NBXplorer. This plugin follows the sa
 | Invoice handler | `Payments/ElektronPaymentMethodHandler.cs` | Reserves an address per invoice |
 | Checkout | `Payments/ElektronCheckoutModelExtension.cs`, `Payments/ElektronPaymentLinkExtension.cs` | QR code, payment link, confirmations |
 
-Payment IDs have the form `<txid>:<vout>`.
+Payment IDs have the form `<txid>:<vout>`. On mainnet, transaction links point to `https://mempool.elektron-net.org/tx/<txid>`.
 
 The plugin never holds private keys. It requires a watch-only wallet on the node and refuses to run against a wallet with private keys enabled. Receiving addresses are requested explicitly as Bech32 (`be1q...`), because legacy Base58 addresses are identical to Bitcoin mainnet addresses.
 
@@ -110,11 +111,11 @@ The skeleton has not been compiled yet.
 - [ ] Add the BTCPay Server submodule and a solution file
 - [ ] Compile against BTCPay Server 2.3.7 or newer and fix API mismatches
 - [ ] Verify that a network without `DefaultRateRules` registers cleanly
-- [ ] Add the ELEK logo as an embedded resource and set `CryptoImagePath`
+- [ ] Verify that the logo renders in the checkout (the SVG draws the letter with a `text` element and relies on an installed Arial or fallback font)
 - [ ] Run the wallet setup from the operations guideline against `elektrond` (pruned node)
 - [ ] Verify `getnewaddress` and `gettransaction` output on a watch-only wallet
 - [ ] Add a store settings page or confirm the Greenfield call
-- [ ] Map Elektron testnet and regtest chain names
+- [ ] Map Elektron testnet and regtest chain names, and the explorer link for them
 - [ ] Handle conflicted and replaced transactions
 - [ ] Unit tests for confirmation policy and payment mapping
 - [ ] CI workflow and release packaging
@@ -122,8 +123,7 @@ The skeleton has not been compiled yet.
 ## 8. Open Questions
 
 1. Should each store get its own wallet to remove the shared-wallet restriction?
-2. Which public block explorer URL should be used for transaction links once `elektron-net-mempool` is deployed?
-3. Which confirmation counts fit a 60 second block target for the speed policies?
+2. Which confirmation counts fit a 60 second block target for the speed policies?
 
 ## License
 

@@ -41,4 +41,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\submodules\btcpayserver\BTCPayServer\BTCPayServer.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="elektron.svg" />
+  </ItemGroup>
 </Project>

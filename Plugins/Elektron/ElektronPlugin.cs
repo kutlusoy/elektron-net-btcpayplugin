@@ -36,6 +36,7 @@ public class ElektronPlugin : BaseBTCPayServerPlugin
             CryptoCode = CryptoCode,
             DisplayName = "Elektron Net",
             Divisibility = 8,
+            CryptoImagePath = "elektron.svg",
             UriScheme = "elek"
         };
         var explorerLink = chainName == ChainName.Mainnet ? "https://mempool.elektron-net.org/tx/{0}" : null;
