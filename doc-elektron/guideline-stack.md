@@ -108,7 +108,7 @@ The sweeper checks every `SWEEP_INTERVAL` seconds. When the confirmed balance (a
 7. Creates the wallet (watch-only with the imported descriptor, or encrypted hot wallet), or loads it if it already exists
 8. Starts the whole stack and writes `CREDENTIALS.txt`: one file with everything worth securing (versions, URL, node RPC and database passwords, wallet name and mode, the public descriptor and first address in watch-only mode, the wallet passphrase, the latest wallet backup path and the sweep rule in hot mode, the files to keep and the backup commands). Copy it off the server and delete it there if you prefer
 
-The script can be run again at any time and doubles as the update. Every run checks for new releases, rebuilds the images only when something changed and recreates only the changed containers. It reuses the existing secrets from `.env` and `secrets/`, the existing wallet and the existing `elektron.conf` (only a missing `fallbackfee` line is added, followed by a node restart), and rewrites `CREDENTIALS.txt` from them. In hot mode every run also writes a dated wallet backup inside the node volume. If the build of a new release fails, the installer stops before it touches the running stack and restores the previous `.env`. A new release can still fail at runtime, for example when BTCPay Server changes an API the plugin uses, so check the store page afterwards. Pin `BTCPAY_VERSION` or `ELEKTRON_NET_REF` in `stack.conf` to go back to the previous release.
+The script can be run again at any time and doubles as the update. Every run checks for new releases, rebuilds the images only when something changed and recreates only the changed containers. It reuses the existing secrets from `.env` and `secrets/`, the existing wallet and the existing `elektron.conf` (only a missing `fallbackfee` line is added and an old `rpcbind=0.0.0.0` is changed to the internal address, followed by a node restart), and rewrites `CREDENTIALS.txt` from them. In hot mode every run also writes a dated wallet backup inside the node volume. If the build of a new release fails, the installer stops before it touches the running stack and restores the previous `.env`. A new release can still fail at runtime, for example when BTCPay Server changes an API the plugin uses, so check the store page afterwards. Pin `BTCPAY_VERSION` or `ELEKTRON_NET_REF` in `stack.conf` to go back to the previous release.
 
 ## 7. First Steps After the Install
 
@@ -143,7 +143,8 @@ Backups: the signing wallet (watch-only mode) or the wallet backup and passphras
 
 ## 10. Security Notes
 
-- The node RPC port is not published. Only the internal network (`172.29.88.0/24`) can reach it.
+- The node RPC port is not published, and the node binds it to its internal address `172.29.88.251` only (`rpcbind`), not to `0.0.0.0`. Only the internal network (`172.29.88.0/24`) can reach it.
+- PostgreSQL is not published either and listens on its internal address `172.29.88.250` only (`listen_addresses`), not on `0.0.0.0`. Ports `5432` and `8332` are never open on the host, only `80`, `443` and `8333` are.
 - `.env`, `cli.conf`, `elektron.conf`, `secrets/` and `CREDENTIALS.txt` contain credentials. They are created with mode `600` and are excluded from Git.
 - The sweep address is fixed in the configuration of the sweeper. The wallet passphrase is mounted into the sweeper only, not into the BTCPay container.
 - While the sweeper has the wallet unlocked (up to 60 seconds, only when a sweep happens), anyone who holds the node RPC credentials could spend. BTCPay Server holds those credentials, so keep the balance low and the sweep threshold small.
@@ -170,6 +171,7 @@ Backups: the signing wallet (watch-only mode) or the wallet backup and passphras
 | Update flow: latest tag resolution (pre-releases ignored), node update to a new tag, BTCPay version change, restore after a failed build, missing image check, self-update with restart | **Simulated** with local Git repositories and a stand-in for `docker`, not against GitHub or Docker Hub |
 | Sweeper amount arithmetic, threshold logic, passphrase on stdin, wallet locking on failure | **Simulated** with a stand-in for `elektron-cli`, and **verified** once against a real `elektrond` v4.0.5 in regtest: encrypted wallet created with `-stdin -named createwallet`, 8 ELEK received, 7 ELEK swept with the fee deducted, wallet locked again, 1 ELEK left |
 | Compose file validity and profiles | Checked with `docker compose config` |
+| Fixed container addresses, `listen_addresses` of PostgreSQL and the node `rpcbind` to an internal address | Compose file parsed as YAML, `rpcbind` to a specific address checked on a real node (only that address answers, `elektron-cli` with `rpcconnect` works). The PostgreSQL setting and the fixed addresses were **not run** with Docker |
 | Docker image builds (node, BTCPay with plugin), `docker compose up` | **Not verified**, no registry access where this was written |
 | The BTCPay tag `v<BTCPAY_VERSION>` and the Docker Hub image tag exist | **Not verified** |
 | Plugin installation through the queued `install` command | Read from BTCPay Server source, not run |
