@@ -529,9 +529,9 @@ In both cases set `next_index` in `importdescriptors` to the highest index you h
 | Node built natively from the v4.0.5 sources and run in regtest and offline on the main chain | **Verified**: `createwallet` with the installer arguments, `importdescriptors`, `deriveaddresses` equals the first `getnewaddress`, `listreceivedbyaddress` and `gettransaction` return the fields the plugin reads, error codes -18 and -35, `rpcauth.py` output, main chain descriptor path `84h/1370h/0h` and `be1` addresses |
 | Fee estimation for sends | **Verified** on the real node: without `-fallbackfee` a send fails on a fresh node, so the stack config sets `fallbackfee=0.0001` |
 | Live node setup, real sync, snapshot activation and the time from first header to synced | **Not verified**, no network access for peers where this was written. Run `measure-sync.sh` and record the figures |
-| `measure-sync.sh` logic | Simulated with a stand-in for `elektron-cli` and a sample log |
+| `measure-sync.sh` logic | Simulated with a stand-in for `elektron-cli` and a sample log, and run once against a real node in regtest (no real sync) |
 | Docker image build for the node | Taken from `elektron-net-stack`, not run for this guide |
-| Wallet RPCs (`createwallet`, `importdescriptors`, `listdescriptors`, `deriveaddresses`) | Present in `elektron-net` source, not run against `elektrond` |
+| Wallet RPCs (`createwallet`, `importdescriptors`, `listdescriptors`, `deriveaddresses`) | **Verified** against a real `elektrond` v4.0.5, see the regtest row above |
 | Plugin upload, restart, uninstall flow and packer arguments | Read from BTCPay Server source |
 | BTCPay Server APIs used by the plugin (payment handler, payment service, events, UI extension points, sync summary) | Read from BTCPay Server source at commit `ae3abbb0`, no compiler available |
 | Payment method id `ELEK-CHAIN`, payment id format `txid-vout` | Read from BTCPay Server source |
