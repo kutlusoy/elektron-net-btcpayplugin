@@ -178,7 +178,7 @@ The script can be run again at any time and doubles as the update. Every run che
 1. Open `https://BTCPAY_HOST` (in local mode `http://localhost:49392`) and register the administrator account immediately. The first account that registers becomes the server administrator.
 2. Create a store. Open **Wallets > Elektron Net** in the store and enable ELEK.
 3. Wait until the node has synchronised (`docker compose exec elektrond elektron-cli -conf=/etc/elektron/cli.conf getblockchaininfo` shows `initialblockdownload: false`). The store page shows the node status as well.
-4. Create a small test invoice, see section 7.7 of the operations guideline.
+4. Create a small test invoice, see section 7.7 of the operations guideline. ELEK has no exchange rate source yet, so an invoice priced in EUR or USD fails with `Unable to get rate ELEK_EUR`. Either price the test invoice in `ELEK` (type the currency code), or set a fixed rate for the store: open the store settings, Rates, switch on the advanced rate rules and add a line such as `ELEK_EUR = 0.50;` above the existing `X_X` line (one ELEK costs that many EUR, pick your own test value). BTCPay accepts fixed numbers in rate rules, its own tests use lines like `DOGE_BTC = 2000`. The menu names were not checked on a running instance.
 
 ## 10. Operations
 
@@ -227,6 +227,7 @@ Backups: the signing wallet (watch-only mode) or the wallet backup and passphras
 | Sweeper logs a failed sweep | Wallet locked state, balance too small, RPC unreachable | `docker compose logs sweeper`, test `sendtoaddress` by hand |
 | Node container restarts with `Data directory "/data" contains a "bitcoin.conf" file which is ignored` | The node writes its own `bitcoin.conf` into the data directory and refuses a second configuration file | The image starts the node with `-allowignoredconf=1`. Rebuild with `bash install.sh` if your image is older |
 | Node container restarts with `could not be opened` for the configuration | `elektron.conf` is not readable for the node user | `chmod 644 elektron.conf` (the installer does this on every run) |
+| Invoice in EUR or USD fails with `Unable to get rate(s) ELEK_EUR, this payment method disabled for this invoice` | ELEK has no exchange rate source | Price the invoice in `ELEK`, or add a fixed rate rule such as `ELEK_EUR = 0.50;` in the store rate settings (section 9) |
 | Local mode: `http://localhost:49392` does not open | The stack is still starting, or the port is taken by another program | `docker compose ps`, `docker compose logs btcpayserver`, free the port |
 
 ## 14. Verification Status
