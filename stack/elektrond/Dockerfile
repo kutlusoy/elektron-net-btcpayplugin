@@ -22,7 +22,7 @@ RUN cmake -B build \
 FROM debian:bookworm-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        libevent-2.1-7 libevent-pthreads-2.1-7 \
+        libevent-2.1-7 libevent-core-2.1-7 libevent-extra-2.1-7 libevent-pthreads-2.1-7 \
         libsqlite3-0 libzmq5 \
         ca-certificates gosu \
     && rm -rf /var/lib/apt/lists/* \
