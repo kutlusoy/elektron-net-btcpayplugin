@@ -5,7 +5,7 @@
 - **Audience:** Plugin developers, merchants running BTCPay Server who want to accept ELEK
 - **Reference implementation:** [`elektron-net`](https://github.com/kutlusoy/elektron-net) (`src/wallet/rpc/`, `src/wallet/init.cpp`, `src/kernel/chainparams.cpp`), treat as ground truth for anything this doc references
 - **Pattern source:** [`btcpayserver-monero-plugin`](https://github.com/btcpay-monero/btcpayserver-monero-plugin) (MIT), structure of a BTCPay Server plugin that does not use NBXplorer
-- **See also:** [`doc-elektron/guideline-stack.md`](doc-elektron/guideline-stack.md) (one-script payment stack), [`doc-elektron/guideline-operations.md`](doc-elektron/guideline-operations.md) (manual setup, operation, switching off), [`elektron-net-payments`](https://github.com/kutlusoy/elektron-net-payments) (`pay-server`, escrow), [`elektron-net-mempool`](https://github.com/kutlusoy/elektron-net-mempool) (block explorer)
+- **See also:** [`doc-elektron/guideline-stack.md`](doc-elektron/guideline-stack.md) (one-script payment stack), [`doc-elektron/guideline-operations.md`](doc-elektron/guideline-operations.md) (manual setup, operation, switching off), [`elektron-net-osclass`](https://github.com/kutlusoy/elektron-net-osclass) (Osclass escrow), [`elektron-net-mempool`](https://github.com/kutlusoy/elektron-net-mempool) (block explorer)
 
 ---
 
@@ -23,7 +23,7 @@ In scope for the first versions:
 Out of scope:
 
 - Sending, payouts, pull payments and the built-in BTCPay wallet UI (the merchant manages funds in their own wallet)
-- Escrow (2-of-2 with CLTV timeouts), which is handled by `pay-server` in `elektron-net-payments`
+- Escrow (2-of-2 with CLTV timeouts), which is handled by the Osclass plugin in `elektron-net-osclass`
 - Lightning
 
 For a complete one-script install (node, PostgreSQL, BTCPay Server with the plugin, HTTPS, optional auto-sweep), read the [stack guideline](doc-elektron/guideline-stack.md). For manual setup and operation on Linux, Windows and macOS, read the [operations guideline](doc-elektron/guideline-operations.md).

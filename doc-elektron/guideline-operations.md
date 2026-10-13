@@ -5,7 +5,7 @@
 - **Audience:** Merchants and server operators who want to accept ELEK through BTCPay Server
 - **Reference implementation:** [`elektron-net`](https://github.com/kutlusoy/elektron-net) (`TECHNICAL_SETUP.md`, `Quick-Install.md`, `src/wallet/rpc/`, `src/kernel/chainparams.cpp`), treat as ground truth for anything this doc references
 - **Consumer:** this plugin, see [`README.MD`](../README.MD)
-- **See also:** [`guideline-stack.md`](guideline-stack.md) (all-in-one install with one script), [`elektron-net-stack`](https://github.com/kutlusoy/elektron-net-stack) (Docker node setup), [`guideline-wallet-integration.md`](https://github.com/kutlusoy/elektron-net/blob/main/doc-elektron/guideline-wallet-integration.md) (derivation paths, address safety), [`elektron-net-payments`](https://github.com/kutlusoy/elektron-net-payments) (`pay-server`, escrow)
+- **See also:** [`guideline-stack.md`](guideline-stack.md) (all-in-one install with one script), [`elektron-net-stack`](https://github.com/kutlusoy/elektron-net-stack) (Docker node setup), [`guideline-wallet-integration.md`](https://github.com/kutlusoy/elektron-net/blob/main/doc-elektron/guideline-wallet-integration.md) (derivation paths, address safety), [`elektron-net-osclass`](https://github.com/kutlusoy/elektron-net-osclass) (Osclass escrow)
 
 Requirement levels follow common practice: **MUST** = mandatory for correct or safe operation, **SHOULD** = strongly recommended, **MAY** = optional.
 
