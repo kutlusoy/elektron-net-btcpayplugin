@@ -54,11 +54,13 @@ if [[ $LOCAL_MODE == true ]]; then
     BTCPAY_HOST="localhost"
     BTCPAY_PROTO="http"
     P2P_BIND="127.0.0.1"
+    P2P_PORT=""
     BASE_URL="http://localhost:49392"
 else
     [[ -n $BTCPAY_HOST && $BTCPAY_HOST != *example.com ]] || die "set BTCPAY_HOST in $CONF, or set LOCAL_MODE=true to run without a domain"
     BTCPAY_PROTO="https"
     P2P_BIND="0.0.0.0"
+    P2P_PORT="8333"
     BASE_URL="https://$BTCPAY_HOST"
 fi
 
@@ -168,6 +170,7 @@ COMPOSE_PROFILES_VALUE="$(IFS=,; echo "${profiles[*]:-}")"
     echo "BTCPAY_HOST=$BTCPAY_HOST"
     echo "BTCPAY_PROTO=$BTCPAY_PROTO"
     echo "P2P_BIND=$P2P_BIND"
+    echo "P2P_PORT=$P2P_PORT"
     echo "COMPOSE_PROFILES=$COMPOSE_PROFILES_VALUE"
     echo "BTCPAY_VERSION=$BTCPAY_TARGET"
     echo "WALLET_NAME=$WALLET_NAME"

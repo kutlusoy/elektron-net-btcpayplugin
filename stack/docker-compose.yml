@@ -8,9 +8,10 @@ services:
       dockerfile: ../elektrond/Dockerfile
       additional_contexts:
         node: ./elektrond
-    restart: unless-stopped
+    restart: always
+    stop_grace_period: 5m
     ports:
-      - "${P2P_BIND:-0.0.0.0}:8333:8333"
+      - "${P2P_BIND:-0.0.0.0}:${P2P_PORT-8333}:8333"
     networks:
       default:
         ipv4_address: 172.29.88.251
@@ -21,7 +22,8 @@ services:
 
   postgres:
     image: postgres:16-alpine
-    restart: unless-stopped
+    restart: always
+    stop_grace_period: 1m
     command: ["postgres", "-c", "listen_addresses=172.29.88.250"]
     networks:
       default:
@@ -45,7 +47,7 @@ services:
       dockerfile: stack/btcpay/Dockerfile
       args:
         BTCPAY_VERSION: ${BTCPAY_VERSION}
-    restart: unless-stopped
+    restart: always
     ports:
       - "127.0.0.1:49392:49392"
     depends_on:
@@ -73,7 +75,7 @@ services:
   caddy:
     image: caddy:2-alpine
     profiles: ["public"]
-    restart: unless-stopped
+    restart: always
     depends_on:
       - btcpayserver
     ports:
@@ -90,7 +92,7 @@ services:
   sweeper:
     image: elektron-pay/elektrond:local
     profiles: ["hot"]
-    restart: unless-stopped
+    restart: always
     depends_on:
       - elektrond
     entrypoint: ["bash", "/opt/sweep/sweep.sh"]
