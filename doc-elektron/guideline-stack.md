@@ -128,7 +128,7 @@ WALLET_MODE=hot
 What changes in local mode:
 
 - `BTCPAY_HOST` is not needed and Caddy is not started. BTCPay Server answers over plain HTTP at `http://localhost:49392`, published on `127.0.0.1` only.
-- The node publishes its P2P port on `127.0.0.1` only. It still syncs, outgoing connections are enough, nothing on your computer is reachable from the network.
+- The node publishes its P2P port on `127.0.0.1` with a random host port only, nothing listens on a fixed port such as `8333`. It still syncs, outgoing connections are enough, nothing on your computer is reachable from the network. Not using a fixed port also avoids start failures on Windows, where a reboot can reserve port ranges.
 - `WALLET_MODE=hot` works without `SWEEP_ADDRESS` and without a descriptor. The installer creates an encrypted wallet, no sweeper is started and the funds stay in the wallet. Use this for tests with small amounts only. A domain setup (section 4 and 5) still requires either a descriptor or a sweep address.
 - `WALLET_MODE=watchonly` works as well, with a descriptor from section 4.1.
 
@@ -156,7 +156,8 @@ bash install.sh
 
 6. Open `http://localhost:49392` in the Windows browser. Docker Desktop passes the port that the container publishes on `127.0.0.1` through to Windows, so the page is reachable from your Windows PC and from nothing else. Register the administrator account, create a store and enable **Wallets > Elektron Net**. The first build takes a while, and the node has to finish syncing before ELEK can be accepted.
 7. To measure the sync time: `ELEKTRON_CLI="docker compose exec -T elektrond elektron-cli -conf=/etc/elektron/cli.conf" LOG_FILE=<path to debug.log> bash tools/measure-sync.sh`.
-8. Remove everything again with `docker compose down -v` (this deletes the node data, the database and the wallet of the test).
+8. To have everything come back after a reboot, switch on "Start Docker Desktop when you sign in" in the Docker Desktop settings. The containers themselves restart on their own (section 10).
+9. Remove everything again with `docker compose down -v` (this deletes the node data, the database and the wallet of the test).
 
 If the repository was cloned on the Windows side, the file `.gitattributes` keeps the shell scripts and configs on LF line endings. A failure like `bash\r: No such file or directory` means a script has CRLF line endings, clone again inside WSL2.
 
@@ -194,6 +195,8 @@ The script can be run again at any time and doubles as the update. Every run che
 | Go back to a release | Set `ELEKTRON_NET_REF` or `BTCPAY_VERSION` to that release in `stack.conf`, run `bash install.sh` |
 | Change sweep settings | Edit `stack.conf`, run `bash install.sh` |
 
+After a restart of the computer or of Docker, every service starts again on its own (`restart: always`). The node gets up to five minutes and the database one minute to shut down cleanly, so the chain data is flushed before the container is stopped. If something is not running afterwards, run `docker compose up -d` in `stack/`, then `docker compose ps -a` and `docker compose logs elektrond --tail 50`. On Windows, Docker Desktop itself has to start with the computer: switch on "Start Docker Desktop when you sign in" in its settings.
+
 Check the [node releases](https://github.com/kutlusoy/elektron-net/releases) regularly, some are mandatory before a given block height.
 
 Backups: the signing wallet (watch-only mode) or the wallet backup and passphrase (hot mode) are the only things that protect funds. The BTCPay database lives in the `postgres-data` volume, back it up with `docker compose exec postgres pg_dump -U btcpay btcpayserver > backup.sql`. The node data can be re-synchronised.
@@ -207,7 +210,7 @@ Backups: the signing wallet (watch-only mode) or the wallet backup and passphras
 ## 12. Security Notes
 
 - The node RPC port is not published, and the node binds it to its internal address `172.29.88.251` only (`rpcbind`), not to `0.0.0.0`. Only the internal network (`172.29.88.0/24`) can reach it.
-- PostgreSQL is not published either and listens on its internal address `172.29.88.250` only (`listen_addresses`), not on `0.0.0.0`. Ports `5432` and `8332` are never open on the host, only `80`, `443` and `8333` are (in local mode only `127.0.0.1:49392` and `127.0.0.1:8333`).
+- PostgreSQL is not published either and listens on its internal address `172.29.88.250` only (`listen_addresses`), not on `0.0.0.0`. Ports `5432` and `8332` are never open on the host, only `80`, `443` and `8333` are (in local mode only `127.0.0.1:49392` and a random loopback port for the node).
 - `.env`, `cli.conf`, `secrets/` and `CREDENTIALS.txt` contain credentials. They are created with mode `600` and are excluded from Git. `elektron.conf` has mode `644` because the node runs as an unprivileged user inside the container and has to read it. It holds only the hashed RPC credential, not the password.
 - The sweep address is fixed in the configuration of the sweeper. The wallet passphrase is mounted into the sweeper only, not into the BTCPay container.
 - While the sweeper has the wallet unlocked (up to 60 seconds, only when a sweep happens), anyone who holds the node RPC credentials could spend. BTCPay Server holds those credentials, so keep the balance low and the sweep threshold small.
@@ -228,6 +231,7 @@ Backups: the signing wallet (watch-only mode) or the wallet backup and passphras
 | Node container restarts with `Data directory "/data" contains a "bitcoin.conf" file which is ignored` | The node writes its own `bitcoin.conf` into the data directory and refuses a second configuration file | The image starts the node with `-allowignoredconf=1`. Rebuild with `bash install.sh` if your image is older |
 | Node container restarts with `could not be opened` for the configuration | `elektron.conf` is not readable for the node user | `chmod 644 elektron.conf` (the installer does this on every run) |
 | Invoice in EUR or USD fails with `Unable to get rate(s) ELEK_EUR, this payment method disabled for this invoice` | ELEK has no exchange rate source | Price the invoice in `ELEK`, or add a fixed rate rule such as `ELEK_EUR = 0.50;` in the store rate settings (section 9) |
+| After a reboot the node container is not running | Docker Desktop did not start, the container could not bind its published port, or the node was killed during shutdown and has to recover | Start Docker Desktop (and enable start at sign-in), `docker compose up -d`, then `docker compose ps -a` and `docker compose logs elektrond --tail 50`. A port error such as `forbidden by its access permissions` points to a reserved port range on Windows, local mode avoids it by using a random node port |
 | Local mode: `http://localhost:49392` does not open | The stack is still starting, or the port is taken by another program | `docker compose ps`, `docker compose logs btcpayserver`, free the port |
 
 ## 14. Verification Status
@@ -237,6 +241,7 @@ Backups: the signing wallet (watch-only mode) or the wallet backup and passphras
 | Installer flow, generated files and file modes, config validation and rejections | **Simulated** with a stand-in for `docker`, no real containers |
 | Local mode (no domain, loopback ports, no Caddy, hot wallet without sweeper, rejections for a missing domain or sweep address) | **Simulated** with a stand-in for `docker`, the compose file parsed as YAML, not run with Docker |
 | `tools/export-descriptor.sh` | **Verified** against a real `elektrond` v4.0.5 on the main chain, offline: new and existing wallet, path `84h/1370h/0h`, `be1` first address, refusal on another chain |
+| Restart behaviour (`restart: always`, shutdown time of the node, local node port) | **Not verified**, set from the Docker documentation after a user reported that the node did not start after a reboot. The cause was not seen in a log yet |
 | Windows with Docker Desktop and WSL2 | **Not verified**, the steps are written from the Docker Desktop and WSL2 documentation and have not been run. That Docker Desktop forwards a port published on `127.0.0.1` to the Windows browser is also not verified here |
 | Update flow: latest tag resolution (pre-releases ignored), node update to a new tag, BTCPay version change, restore after a failed build, missing image check, self-update with restart | **Simulated** with local Git repositories and a stand-in for `docker`, not against GitHub or Docker Hub |
 | Sweeper amount arithmetic, threshold logic, passphrase on stdin, wallet locking on failure | **Simulated** with a stand-in for `elektron-cli`, and **verified** once against a real `elektrond` v4.0.5 in regtest: encrypted wallet created with `-stdin -named createwallet`, 8 ELEK received, 7 ELEK swept with the fee deducted, wallet locked again, 1 ELEK left |
